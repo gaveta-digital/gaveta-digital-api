@@ -26,7 +26,7 @@ Não fazemos testes "no final". Testes são parte da implementação, não um ex
 
 O teste unitário valida se **aquela peça específica funciona corretamente** conforme as regras definidas em `regras-de-negocio.md`.
 
-### Sprint 2: Testes de Integração (Cauã testa o fluxo completo)
+### Sprint 2: Testes de Integração (Cauan testa o fluxo completo)
 
 Depois que tudo está junto, **Cauan** faz testes que verificam se as peças conversam entre si:
 
