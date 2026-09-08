@@ -17,7 +17,7 @@ async function bootstrap() {
     }
 
     app.listen(PORT, () => {
-      console.log(`Servidor rodando na porta ${PORT}`);
+      console.log(`🚀 API rodando em http://localhost:${PORT}/api/teste`);
     });
   } catch (error) {
     console.error('[OLHE O .env POR VIA DAS DUVIDAS]\nNão foi possível conectar ao banco de dados ou iniciar o servidor:', error);
