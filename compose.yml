@@ -1,0 +1,18 @@
+services:
+  api:
+    build: .
+    ports:
+      - "8080:8080"
+    environment:
+      PORT: '8080'
+      NODE_ENV: development
+      DB_DIALECT: sqlite
+      DB_STORAGE: /app/data/database.sqlite
+    command: npm run dev
+    volumes:
+      - ./src:/app/src:ro
+      - sqlite-data:/app/data
+    init: true
+
+volumes:
+  sqlite-data:
