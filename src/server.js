@@ -2,7 +2,7 @@ require('dotenv').config({
   path: '../.env'
 });
 const app = require('./app');
-const { sequelize } = require('./models');
+const { sequelize, Categoria } = require('./models');
 
 const PORT = process.env.PORT;
 
@@ -13,6 +13,7 @@ async function bootstrap() {
 
     if (process.env.NODE_ENV === 'development') {
       await sequelize.sync();
+      await Categoria.seedIniciais();
       console.log('Banco de dados sincronizado.');
     }
 

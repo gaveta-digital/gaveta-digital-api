@@ -1,10 +1,12 @@
 const sequelize = require('../config/database');
 const Conta = require('./Conta');
 const Usuario = require('./Usuario');
+const Categoria = require('./Categoria');
 
 const models = {
   Conta,
   Usuario,
+  Categoria,
 };
 
 Object.keys(models).forEach((modelName) => {
