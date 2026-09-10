@@ -9,8 +9,12 @@ class CategoriaController {
     } catch (error) {
       if (error.name === 'SequelizeUniqueConstraintError') {
         return res.status(409).json({
-          status: 'erro',
-          message: 'Categoria já cadastrada',
+          erro: 'Categoria já cadastrada',
+        });
+      }
+      if (error.name === 'SequelizeValidationError') {
+        return res.status(400).json({
+          erro: error.errors[0].message,
         });
       }
       next(error);
@@ -34,8 +38,13 @@ class CategoriaController {
       const categoria = await Categoria.findByPk(id);
       if (!categoria) {
         return res.status(404).json({
-          status: 'erro',
-          message: 'Categoria não encontrada',
+          erro: 'Categoria não encontrada',
+        });
+      }
+
+      if (categoria.nome === 'Outros' && nome !== 'Outros') {
+        return res.status(400).json({
+          erro: 'A categoria "Outros" não pode ser renomeada',
         });
       }
 
@@ -44,8 +53,12 @@ class CategoriaController {
     } catch (error) {
       if (error.name === 'SequelizeUniqueConstraintError') {
         return res.status(409).json({
-          status: 'erro',
-          message: 'Categoria já cadastrada',
+          erro: 'Categoria já cadastrada',
+        });
+      }
+      if (error.name === 'SequelizeValidationError') {
+        return res.status(400).json({
+          erro: error.errors[0].message,
         });
       }
       next(error);
@@ -59,8 +72,13 @@ class CategoriaController {
       const categoria = await Categoria.findByPk(id);
       if (!categoria) {
         return res.status(404).json({
-          status: 'erro',
-          message: 'Categoria não encontrada',
+          erro: 'Categoria não encontrada',
+        });
+      }
+
+      if (categoria.nome === 'Outros') {
+        return res.status(400).json({
+          erro: 'A categoria "Outros" não pode ser excluída',
         });
       }
 
@@ -70,8 +88,7 @@ class CategoriaController {
 
       if (comprovantesVinculados > 0) {
         return res.status(400).json({
-          status: 'erro',
-          message: 'Não é possível excluir categoria com comprovantes vinculados',
+          erro: 'Não é possível excluir categoria com comprovantes vinculados',
         });
       }
 
