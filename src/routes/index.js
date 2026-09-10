@@ -1,6 +1,9 @@
 const { Router } = require('express');
+const categoriaRoutes = require('./categoriaRoutes');
 
 const router = Router();
+
+router.use('/categorias', categoriaRoutes);
 
 //Apenas para testar se o servidor está funcionando
 router.get('/teste', (req, res) => {
