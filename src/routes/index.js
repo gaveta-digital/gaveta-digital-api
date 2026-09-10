@@ -11,4 +11,6 @@ router.get('/teste', (req, res) => {
   });
 });
 
+router.use('/usuarios', require('./UsuarioRota'));
+
 module.exports = router;
