@@ -36,15 +36,24 @@ const usuarioSchema = z.object({
 
 const validarUsuario = (req, res, next) => {
     try {
-    // O parse do Zod já vai formatar o req.body (aplicando trim e toLowerCase)
-    req.body = usuarioSchema.parse(req.body);
-    next();
+        req.body = usuarioSchema.parse(req.body);
+        next();
     } catch (erro) {
-    return res.status(400).json({
-        status: 'erro',
-        mensagens: erro.errors.map(e => e.message)
-    });
+        // Verifica se o erro foi disparado pelo Zod (erro de validação)
+        if (erro instanceof z.ZodError) {
+            return res.status(400).json({
+                status: 'erro',
+                mensagens: erro.issues.map(e => e.message)
+            });
+        }
+        
+        // Se for qualquer outro erro bizarro no sistema, devolve 500
+        return res.status(500).json({
+            status: 'erro',
+            mensagem: erro.message || 'Erro interno no servidor'
+        });
     }
 };
+
 
 module.exports = validarUsuario;
