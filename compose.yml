@@ -3,11 +3,9 @@ services:
     build: .
     ports:
       - "8080:8080"
-    environment:
-      PORT: '8080'
-      NODE_ENV: development
-      DB_DIALECT: sqlite
-      DB_STORAGE: /app/data/database.sqlite
+    # o docker puxa TODAS as variáveis direto do seu .env
+    env_file: 
+      - .env
     command: npm run dev
     volumes:
       - ./src:/app/src:ro
