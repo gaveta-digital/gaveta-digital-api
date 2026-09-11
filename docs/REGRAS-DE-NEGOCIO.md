@@ -1,4 +1,4 @@
-# Regras de Negócio — Comprova+ API
+# Regras de Negócio — API
 
 ---
 
@@ -6,10 +6,10 @@
 
 **Escopo atual:** cadastro via `POST /usuarios` e autenticação via `POST /login`. Consulta de perfil, edição de perfil e exclusão de conta não fazem parte desta entrega. Os caminhos são relativos ao prefixo `/api` da aplicação.
 
-| Campo   | Regras                                                                                                                                   |
-| ------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| `nome`  | String obrigatória no cadastro. De 2 a 100 caracteres após remover espaços das extremidades. Deve conter pelo menos uma letra e não pode conter números. Não precisa ser único. |
-| `email` | String obrigatória no cadastro e no login, com formato de e-mail válido. Remover espaços das extremidades e normalizar para minúsculas. Único no sistema, sem diferenciar maiúsculas e minúsculas. |
+| Campo   | Regras                                                                                                                                                                                                                                     |
+| ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `nome`  | String obrigatória no cadastro. De 2 a 100 caracteres após remover espaços das extremidades. Deve conter pelo menos uma letra e não pode conter números. Não precisa ser único.                                                            |
+| `email` | String obrigatória no cadastro e no login, com formato de e-mail válido. Remover espaços das extremidades e normalizar para minúsculas. Único no sistema, sem diferenciar maiúsculas e minúsculas.                                         |
 | `senha` | String obrigatória. No cadastro, mínimo de 8 caracteres, incluindo pelo menos uma letra maiúscula, uma letra minúscula e um número. Nunca armazenada em texto puro — sempre com hash (bcrypt). Nunca retornada em nenhuma resposta da API. |
 
 **Validação do nome do usuário no cadastro:**
@@ -25,16 +25,16 @@
 
 **Exemplos de nome do usuário:**
 
-| Valor no JSON | Resultado |
-| ------------- | --------- |
-| `"Ana"` | Aceitar, sem exigir sobrenome. |
-| `"João D'Ávila"` ou `"Anne-Marie"` | Aceitar. |
-| `" Maria "` | Aceitar e salvar como `"Maria"`. |
-| `"Maria 2026"` ou `"123"` | Rejeitar: contém números. |
-| `"A"` | Rejeitar: menos de 2 caracteres. |
-| `"--"` | Rejeitar: não contém letra. |
-| `null`, `""` ou `"   "` | Rejeitar: nome não preenchido. |
-| `123`, `true`, `[]` ou `{}` | Rejeitar: não é string. |
+| Valor no JSON                      | Resultado                        |
+| ---------------------------------- | -------------------------------- |
+| `"Ana"`                            | Aceitar, sem exigir sobrenome.   |
+| `"João D'Ávila"` ou `"Anne-Marie"` | Aceitar.                         |
+| `" Maria "`                        | Aceitar e salvar como `"Maria"`. |
+| `"Maria 2026"` ou `"123"`          | Rejeitar: contém números.        |
+| `"A"`                              | Rejeitar: menos de 2 caracteres. |
+| `"--"`                             | Rejeitar: não contém letra.      |
+| `null`, `""` ou `"   "`            | Rejeitar: nome não preenchido.   |
+| `123`, `true`, `[]` ou `{}`        | Rejeitar: não é string.          |
 
 **Validação e normalização do e-mail:**
 
@@ -48,14 +48,14 @@
 
 **Exemplos de e-mail:**
 
-| Valor no JSON | Resultado |
-| ------------- | --------- |
-| `"cauan@gmail.com"` | Formato aceito. |
-| `" CAUAN@gmail.com "` | Normalizar para `"cauan@gmail.com"`; no cadastro, retornar `409` se já existir. |
-| `"cauan gmail.com"`, `"cauan@"` ou `"@gmail.com"` | Rejeitar com `400`: formato inválido. |
-| `"cau an@gmail.com"` | Rejeitar com `400`: espaço no interior do endereço. |
-| `null`, `""` ou `"   "` | Rejeitar com `400`: e-mail não preenchido. |
-| `123`, `true`, `[]` ou `{}` | Rejeitar com `400`: não é string. |
+| Valor no JSON                                     | Resultado                                                                       |
+| ------------------------------------------------- | ------------------------------------------------------------------------------- |
+| `"cauan@gmail.com"`                               | Formato aceito.                                                                 |
+| `" CAUAN@gmail.com "`                             | Normalizar para `"cauan@gmail.com"`; no cadastro, retornar `409` se já existir. |
+| `"cauan gmail.com"`, `"cauan@"` ou `"@gmail.com"` | Rejeitar com `400`: formato inválido.                                           |
+| `"cau an@gmail.com"`                              | Rejeitar com `400`: espaço no interior do endereço.                             |
+| `null`, `""` ou `"   "`                           | Rejeitar com `400`: e-mail não preenchido.                                      |
+| `123`, `true`, `[]` ou `{}`                       | Rejeitar com `400`: não é string.                                               |
 
 **Validação da senha no cadastro:**
 
@@ -68,13 +68,13 @@
 
 **Exemplos de senha no cadastro:**
 
-| Valor no JSON | Resultado |
-| ------------- | --------- |
-| `"Abcdefg1"` | Aceitar: atende aos requisitos mínimos. |
-| `"Abcdef1"` | Rejeitar: menos de 8 caracteres. |
-| `"abcdefg1"` | Rejeitar: falta letra maiúscula. |
-| `"ABCDEFG1"` | Rejeitar: falta letra minúscula. |
-| `"Abcdefgh"` | Rejeitar: falta número. |
+| Valor no JSON | Resultado                               |
+| ------------- | --------------------------------------- |
+| `"Abcdefg1"`  | Aceitar: atende aos requisitos mínimos. |
+| `"Abcdef1"`   | Rejeitar: menos de 8 caracteres.        |
+| `"abcdefg1"`  | Rejeitar: falta letra maiúscula.        |
+| `"ABCDEFG1"`  | Rejeitar: falta letra minúscula.        |
+| `"Abcdefgh"`  | Rejeitar: falta número.                 |
 
 **Erros possíveis:**
 
@@ -86,10 +86,10 @@
 
 ## 2. Categoria
 
-| Campo  | Regras                                                                         |
-| ------ | ------------------------------------------------------------------------------ |
-| `nome` | String obrigatória na criação e na edição. De 1 a 50 caracteres após remover espaços das extremidades. Deve conter pelo menos uma letra. Único por usuário. |
-| `usuarioId` | Obrigatório. Identifica o proprietário da categoria e é preenchido pela API a partir do usuário autenticado, nunca escolhido pelo corpo da requisição. |
+| Campo       | Regras                                                                                                                                                      |
+| ----------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `nome`      | String obrigatória na criação e na edição. De 1 a 50 caracteres após remover espaços das extremidades. Deve conter pelo menos uma letra. Único por usuário. |
+| `usuarioId` | Obrigatório. Identifica o proprietário da categoria e é preenchido pela API a partir do usuário autenticado, nunca escolhido pelo corpo da requisição.      |
 
 **Categorias por usuário:**
 
@@ -117,15 +117,15 @@
 
 **Exemplos:**
 
-| Valor de `nome` no JSON | Resultado |
-| ---------------------- | --------- |
-| `"Material"` | Aceitar. |
-| `"Água 2026"` | Aceitar. |
-| `"Manutenção / TI"` | Aceitar. |
-| `" Material "` | Aceitar e salvar como `"Material"`. |
-| `"123"` ou `"---"` | Rejeitar: não contém nenhuma letra. |
-| `123`, `true`, `[]` ou `{}` | Rejeitar: não é string. |
-| `null`, `""` ou `"   "` | Rejeitar: nome não preenchido. |
+| Valor de `nome` no JSON     | Resultado                           |
+| --------------------------- | ----------------------------------- |
+| `"Material"`                | Aceitar.                            |
+| `"Água 2026"`               | Aceitar.                            |
+| `"Manutenção / TI"`         | Aceitar.                            |
+| `" Material "`              | Aceitar e salvar como `"Material"`. |
+| `"123"` ou `"---"`          | Rejeitar: não contém nenhuma letra. |
+| `123`, `true`, `[]` ou `{}` | Rejeitar: não é string.             |
+| `null`, `""` ou `"   "`     | Rejeitar: nome não preenchido.      |
 
 **Categorias iniciais de cada usuário:**
 `Material`, `Alimentação`, `Transporte`, `Serviços`, `Equipamentos`, `Outros`
@@ -163,16 +163,85 @@
 
 ## 3. Comprovante
 
-| Campo             | Tipo    | Regras                                                                                                         |
-| ----------------- | ------- | -------------------------------------------------------------------------------------------------------------- |
-| `estabelecimento` | string ou null | Máximo de 150 caracteres após remover espaços das extremidades. Pode ser `null` se não identificado. Texto vazio ou composto apenas por espaços deve ser normalizado para `null`. |
-| `data`            | date    | Formato `YYYY-MM-DD`. **Pode ser `null`** se não identificada. Não pode ser uma data futura.                   |
-| `valor`           | decimal | Deve ser maior que 0 se identificado. **Pode ser `null`** se não identificado.                                 |
-| `categoriaId`     | FK      | Deve apontar para uma categoria do proprietário do comprovante. Se a IA não retornar uma categoria válida desse usuário, usar a categoria `Outros` dele (nunca salvar `null`). Pode ser alterado manualmente pelo proprietário. |
-| `imagemUrl`       | string  | **Obrigatório sempre** — sem imagem, não existe comprovante.                                                   |
-| `usuarioId`       | FK      | Obrigatório, preenchido automaticamente pelo usuário logado (nunca vem do corpo da requisição, por segurança). |
+| Campo             | Tipo           | Regras                                                                                                                                                                                                                          |
+| ----------------- | -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `estabelecimento` | string ou null | Máximo de 150 caracteres após remover espaços das extremidades. Pode ser `null` se não identificado. Texto vazio ou composto apenas por espaços deve ser normalizado para `null`.                                               |
+| `data`            | string ou null | Data real no formato `YYYY-MM-DD`. Pode ser `null` se não identificada. Aceitar hoje ou datas passadas; não permitir data futura, considerando o fuso `America/Fortaleza`.                                                      |
+| `valor`           | number ou null | Número maior que zero e menor ou igual a 9.999.999,99, com até duas casas decimais. Pode ser `null` se não identificado. Editável pelo proprietário do comprovante.                                                             |
+| `categoriaId`     | FK             | Deve apontar para uma categoria do proprietário do comprovante. Se a IA não retornar uma categoria válida desse usuário, usar a categoria `Outros` dele (nunca salvar `null`). Pode ser alterado manualmente pelo proprietário. |
+| `imagemUrl`       | string         | Referência interna ao arquivo armazenado, preenchida pelo backend a partir do upload. Obrigatória: sem imagem, não existe comprovante. Não é uma URL pública nem um endereço informado pelo cliente.                            |
+| `usuarioId`       | FK             | Obrigatório, preenchido automaticamente pelo usuário logado (nunca vem do corpo da requisição, por segurança).                                                                                                                  |
 
-**Regra de negócio chave:** um comprovante pode ser salvo mesmo com campos incompletos (`estabelecimento`, `data` ou `valor` como `null`) — o importante é **nunca perder o registro**. O usuário poderá editar manualmente depois via `PUT /comprovantes/:id`.
+**Regra de negócio chave:** um comprovante pode ser salvo mesmo com campos incompletos (`estabelecimento`, `data` ou `valor` como `null`) — o importante é **nunca perder o registro**. O usuário poderá editar manualmente depois via `PATCH /comprovantes/:id`.
+
+**Edição parcial do comprovante:**
+
+- Utilizar `PATCH /comprovantes/:id`, sob o prefixo `/api`, com autenticação e verificação de propriedade do comprovante.
+- Permitir editar um ou vários dos campos `estabelecimento`, `data`, `valor` e `categoriaId` na mesma requisição.
+- Manter os campos não enviados com seus valores atuais.
+- Permitir enviar `null` explicitamente para limpar `estabelecimento`, `data` ou `valor`. Não permitir `null` em `categoriaId`, que deve apontar para uma categoria existente do mesmo usuário.
+- Não permitir alterar o ID, o proprietário nem a referência da imagem por essa operação. A substituição da imagem não faz parte desta edição.
+- Rejeitar corpo vazio (`{}`) com `400 Bad Request`.
+- Validar todos os campos enviados antes de salvar. Se qualquer campo enviado for inválido, retornar `400 Bad Request` e não aplicar nenhuma das alterações solicitadas.
+- Quando a edição for concluída, retornar `200 OK` com o comprovante atualizado.
+
+**Listagem de comprovantes:**
+
+- Listar apenas os comprovantes do usuário autenticado.
+- Ordenar pelos cadastrados mais recentemente primeiro, usando a data de criação do registro, não a data extraída da imagem.
+- Aplicar paginação com 20 registros por página por padrão e no máximo 100 registros por requisição.
+
+**Upload e acesso à imagem:**
+
+- O cliente envia o arquivo escolhido ou a foto capturada via `multipart/form-data`. O backend armazena o arquivo e preenche `imagemUrl` com a referência interna; não armazenar o arquivo em si nesse campo.
+- Aceitar imagens JPEG (`.jpg` e `.jpeg`), PNG (`.png`) e WebP (`.webp`). Rejeitar outros formatos.
+- Validar o formato real do conteúdo, sem confiar apenas na extensão ou no tipo MIME informado pelo cliente.
+- Aceitar arquivos de até 10 MiB (10.485.760 bytes), inclusive. Rejeitar arquivos acima desse limite com `413 Payload Too Large` e validar o arquivo antes de aceitá-lo no armazenamento definitivo.
+- Não expor os arquivos por uma pasta pública ou por uma URL permanente sem controle de acesso.
+- Disponibilizar a imagem por `GET /comprovantes/:id/imagem`, sob o prefixo `/api`, exigindo autenticação e verificação de que o comprovante pertence ao usuário solicitante antes de retornar o arquivo.
+- Não expor caminhos internos do armazenamento nas respostas ao cliente.
+- A escolha do armazenamento, da biblioteca de upload e uma eventual renomeação de `imagemUrl` para `imagemKey` ou `imagemPath` são decisões técnicas separadas destas regras.
+
+**Erros de upload:**
+
+Todas as respostas abaixo devem seguir o formato `{ "erro": "mensagem" }`.
+
+| Situação                             | Status HTTP                  | Mensagem                                                   |
+| ------------------------------------ | ---------------------------- | ---------------------------------------------------------- |
+| Nenhum arquivo enviado               | `400 Bad Request`            | Envie uma imagem do comprovante.                           |
+| Formato não permitido                | `415 Unsupported Media Type` | Formato não suportado. Envie uma imagem JPEG, PNG ou WebP. |
+| Arquivo acima de 10 MiB              | `413 Payload Too Large`      | A imagem deve ter no máximo 10 MiB.                        |
+| Arquivo de imagem corrompido         | `400 Bad Request`            | Não foi possível abrir a imagem. Envie outro arquivo.      |
+| Falha interna ao armazenar o arquivo | `500 Internal Server Error`  | Não foi possível salvar a imagem. Tente novamente.         |
+
+- Uma imagem válida, mas ilegível para a IA, segue o tratamento de `422 Unprocessable Entity` da seção 4; não se confunde com arquivo corrompido.
+- Se a conexão for interrompida, a API pode não conseguir entregar uma resposta. Nesse caso, a apresentação da falha de envio ao usuário cabe ao frontend.
+
+**Fluxo de criação a partir da imagem:**
+
+1. O cliente envia o arquivo da foto e o token de autenticação.
+2. A API valida a autenticação e identifica o usuário, sem aceitar que o cliente escolha o proprietário do comprovante.
+3. A API valida o formato e o tamanho do arquivo, armazena a imagem e obtém sua referência interna.
+4. A API busca as categorias do usuário e envia ao Gemini o conteúdo da imagem junto com essa lista. A referência interna do armazenamento, sozinha, não fornece a imagem ao Gemini.
+5. O Gemini retorna os dados extraídos (`estabelecimento`, `data`, `valor` e `categoriaId`) ou indica imagem ilegível, conforme a seção 4.
+6. A API valida os dados retornados e a categoria segundo as regras deste documento; não persiste a resposta da IA sem validação.
+7. Em caso de sucesso, a API reúne os dados, a referência interna da imagem e o `usuarioId` autenticado, salva o comprovante e retorna `201 Created`. Campos não identificados podem permanecer `null` conforme suas regras; a categoria usa o fallback definido.
+
+**Limpeza da imagem em caso de falha na criação:**
+
+- Se a imagem já tiver sido armazenada, mas a análise ou a gravação no banco falhar sem criar o comprovante, remover o arquivo desse upload para não manter uma imagem sem registro associado.
+- Essa limpeza também se aplica quando a IA indicar imagem ilegível e a API não criar o comprovante.
+- Remover apenas o arquivo do upload que falhou. Não remover imagens de comprovantes já salvos, inclusive quando houver falha apenas no envio da resposta ao cliente após a gravação.
+
+**Exclusão do comprovante:**
+
+- Ao solicitar a exclusão pelo aplicativo, o cliente chama `DELETE /comprovantes/:id`, sob o prefixo `/api`, com autenticação.
+- A API deve verificar que o comprovante pertence ao usuário autenticado antes de realizar a exclusão.
+- Excluir efetivamente o registro do banco e remover sua imagem do armazenamento; não apenas ocultar o comprovante no aplicativo.
+- Retornar `204 No Content`, sem corpo de resposta, quando a exclusão do registro e da imagem estiver concluída.
+- Se houver falha ao excluir o registro ou a imagem, não responder sucesso. Retornar `500 Internal Server Error` com `{ "erro": "Não foi possível concluir a exclusão do comprovante. Tente novamente." }`.
+- Em caso de exclusão parcial, manter informações suficientes para retomar a operação e garantir nova tentativa de limpeza até concluir a exclusão. O mecanismo de recuperação é uma decisão técnica; não considerar registro e imagem como removidos enquanto houver uma etapa pendente.
+- A exclusão do comprovante não exclui sua categoria. Se não restarem comprovantes vinculados, a categoria comum poderá ser excluída em uma operação separada, conforme as regras de Categoria.
 
 **Validação e normalização de `estabelecimento`:**
 
@@ -181,6 +250,25 @@
 - Normalizar string vazia ou composta apenas por espaços para `null`.
 - Aceitar no máximo 150 caracteres após remover os espaços das extremidades.
 - A ausência de informação nesse campo não impede salvar o comprovante: manter `estabelecimento` como `null`, desde que as demais regras do comprovante sejam atendidas.
+
+**Validação e edição de `valor`:**
+
+- No JSON, aceitar somente número maior que zero ou `null`. Quando a IA não identificar o valor, permitir salvar `null`.
+- O proprietário pode corrigir o valor manualmente, inclusive quando a IA tiver retornado um valor ou quando o campo estiver `null`.
+- Aplicar as mesmas regras de tipo, sinal e casas decimais na edição manual.
+- Aceitar até duas casas decimais: `10`, `10.5` e `10.50` são válidos. No JSON, `10.5` e `10.50` representam o mesmo número.
+- Rejeitar zero, valores negativos e valores com mais de duas casas decimais, sem arredondar silenciosamente.
+- O valor máximo aceito é 9.999.999,99, inclusive; no JSON, `9999999.99`. A implementação e o armazenamento devem suportar esse limite sem perda de precisão. Rejeitar entradas manuais acima dele com `400 Bad Request`, sem truncar nem arredondar silenciosamente. Se a IA retornar um valor acima do limite, salvar o campo como `null`, conforme as regras para campos inválidos extraídos.
+- Rejeitar strings, inclusive `"10.50"` e `"R$ 10,50"`, booleanos, arrays e objetos. Na entrada manual da API, dados inválidos devem retornar `400 Bad Request`.
+- A máscara monetária e a exibição com duas casas decimais são responsabilidades do frontend. A API recebe, por exemplo, `{ "valor": 1234.56 }`, sem símbolo de moeda nem separador de milhares.
+
+**Validação de `data`:**
+
+- No JSON, aceitar uma string no formato exato `YYYY-MM-DD` ou `null`. O campo representa uma data de calendário, sem horário.
+- Validar a existência da data no calendário, incluindo dias de cada mês e anos bissextos. Por exemplo, `"2026-02-30"` é inválida.
+- Aceitar a data atual e datas passadas. Determinar a data atual pelo fuso `America/Fortaleza`, independentemente do fuso configurado no servidor.
+- Não permitir datas futuras.
+- Quando a IA não identificar a data, salvar `null`, sem impedir o registro do comprovante por essa ausência de informação.
 
 ---
 
@@ -201,7 +289,16 @@
 ### Caso 1: Imagem boa, campo específico não identificado
 
 Exemplo: a foto é nítida, mas a data está cortada fora do enquadramento.
-→ **Regra:** o campo específico retorna `null`. Os demais campos identificados são salvos normalmente.
+→ **Regra:** se o campo não identificado for `estabelecimento`, `data` ou `valor`, salvar `null`. Para categoria não identificada, usar `Outros` do usuário. Os demais campos identificados e válidos são salvos normalmente.
+
+### Campos inválidos retornados pela IA
+
+- Aplicar as normalizações e validações deste documento aos campos extraídos antes de salvar.
+- Se `estabelecimento`, `data` ou `valor` retornado pela IA não atender às regras do respectivo campo, salvar esse campo como `null` e preservar os demais dados válidos. Exemplos: estabelecimento acima de 150 caracteres, data futura ou inexistente, valor negativo ou com mais de duas casas decimais.
+- Não corrigir por adivinhação, truncar ou arredondar silenciosamente um campo inválido.
+- Para `categoriaId` inválido ou não identificado, usar `Outros` do usuário, conforme o fluxo de classificação, nunca `null`.
+- Essa tolerância vale para campos extraídos pela IA. Na edição manual, dados inválidos retornam `400 Bad Request`, sem aplicar nenhuma das alterações solicitadas.
+- Essa regra não transforma imagem ilegível ou falha na chamada ao Gemini em criação bem-sucedida; esses casos continuam sujeitos aos tratamentos abaixo.
 
 ### Caso 2: Imagem ruim/ilegível (borrada, escura, não é um comprovante)
 
@@ -224,6 +321,18 @@ Exemplo: a foto é nítida, mas a data está cortada fora do enquadramento.
 }
 ```
 
+### Resposta do Gemini que não pode ser interpretada
+
+- Se a resposta inteira não puder ser interpretada como o resultado esperado, tratar como falha de integração e retornar `503 Service Unavailable`, com a mesma mensagem amigável de indisponibilidade acima.
+- Não criar o comprovante e remover a imagem já armazenada daquele upload, conforme a regra de limpeza em caso de falha.
+- Distinguir esse caso de uma resposta interpretável com campos individuais inválidos, para os quais se aplicam `null` ou o fallback `Outros`.
+
+### Critério de legibilidade no prompt
+
+- Orientar a IA a indicar imagem ilegível quando estiver tão borrada, escura, cortada ou ilegível que não permita interpretar o comprovante.
+- Se o comprovante puder ser interpretado, mas um campo específico não estiver legível, retornar `null` nesse campo, sem rejeitar toda a imagem.
+- Não adotar uma porcentagem arbitrária de visibilidade declarada pela IA como critério de aceitação. Usar os critérios de legibilidade acima e não inventar informações.
+
 ### Regra geral de ouro
 
 **A IA nunca deve "inventar" (alucinar) um dado.** É preferível `null` a um dado errado — isso deve estar explícito no prompt do sistema.
@@ -245,7 +354,7 @@ Todas as rotas devem seguir o mesmo formato de erro, pra facilitar tratamento no
 
 | Código | Quando usar                                                                     |
 | ------ | ------------------------------------------------------------------------------- |
-| 200    | Requisição OK (GET, PUT)                                                        |
+| 200    | Requisição OK (GET, PUT, PATCH)                                                 |
 | 201    | Recurso criado com sucesso (POST)                                               |
 | 204    | Recurso removido com sucesso (DELETE)                                           |
 | 400    | Dados inválidos / campo obrigatório ausente                                     |
@@ -253,6 +362,8 @@ Todas as rotas devem seguir o mesmo formato de erro, pra facilitar tratamento no
 | 403    | Autenticado, mas sem permissão (ex: tentar editar comprovante de outro usuário) |
 | 404    | Recurso não encontrado                                                          |
 | 409    | Conflito (e-mail duplicado, categoria duplicada)                                |
+| 413    | Arquivo enviado excede o limite de tamanho permitido                            |
+| 415    | Formato de arquivo enviado não suportado                                        |
 | 422    | Dados semanticamente inválidos (ex: imagem ilegível pela IA)                    |
 | 503    | Serviço externo (Gemini) indisponível                                           |
 | 500    | Erro interno inesperado                                                         |
