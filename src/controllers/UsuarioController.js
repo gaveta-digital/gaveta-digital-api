@@ -13,6 +13,12 @@ const UsuarioController = {
                 data: usuarioCriado,
             });
         } catch(erro){
+            if (erro.message === 'Email já cadastrado') {
+                return res.status(409).json({
+                    status: 'erro',
+                    mensagem: erro.message
+                })
+            }
             //enviar o erro para o middleware de tratamento de erros
             next(erro);
         }
@@ -37,6 +43,12 @@ const UsuarioController = {
             });
 
         } catch(erro){
+            if(erro.message === 'Usuario não encontrado' || erro.message === 'email ou senha incorreta'){
+                return res.status(401).json({
+                    status: 'erro',
+                    mensagem: 'Email ou senha incorreta'
+                })
+            }
             //enviar o erro para o middleware de tratamento de erros
             next(erro);
         }
