@@ -18,7 +18,7 @@ describe('Model Categoria', () => {
   });
 
   test('usa Outros quando o nome nao e informado', async () => {
-    const categoria = await Categoria.create({});
+    const categoria = Categoria.build({});
 
     expect(categoria.nome).toBe('Outros');
   });

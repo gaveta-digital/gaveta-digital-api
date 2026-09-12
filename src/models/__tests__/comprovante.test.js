@@ -77,4 +77,42 @@ describe('Model Comprovante', () => {
       })
     ).rejects.toThrow();
   });
+
+  test('rejeita comprovante com valor igual a zero', async () => {
+    await expect(
+      Comprovante.create({
+        valor: 0,
+        imagemUrl: 'https://exemplo.com/comprovante-invalido.jpg',
+        usuarioId: usuario.id,
+        categoriaId: categoria.id,
+      })
+    ).rejects.toThrow('O valor deve ser maior que zero');
+  });
+
+  test.each([
+    ['usuarioId', { categoriaId: 'categoria-id' }],
+    ['categoriaId', { usuarioId: 'usuario-id' }],
+  ])('rejeita comprovante sem %s', async (_campo, campos) => {
+    await expect(
+      Comprovante.create({
+        imagemUrl: 'https://exemplo.com/comprovante.jpg',
+        ...campos,
+      })
+    ).rejects.toThrow();
+  });
+
+  test('carrega usuario e categoria pelas associações', async () => {
+    await Comprovante.create({
+      imagemUrl: 'https://exemplo.com/comprovante.jpg',
+      usuarioId: usuario.id,
+      categoriaId: categoria.id,
+    });
+
+    const comprovante = await Comprovante.findOne({
+      include: ['usuario', 'categoria'],
+    });
+
+    expect(comprovante.usuario.id).toBe(usuario.id);
+    expect(comprovante.categoria.id).toBe(categoria.id);
+  });
 });
