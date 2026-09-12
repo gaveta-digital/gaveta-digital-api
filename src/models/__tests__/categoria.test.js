@@ -17,6 +17,12 @@ describe('Model Categoria', () => {
     expect(categoria.nome).toBe('Saude');
   });
 
+  test('usa Outros quando o nome nao e informado', async () => {
+    const categoria = await Categoria.create({});
+
+    expect(categoria.nome).toBe('Outros');
+  });
+
   test('rejeita categoria com nome duplicado', async () => {
     await expect(Categoria.create({ nome: 'Saude' })).rejects.toThrow();
   });
