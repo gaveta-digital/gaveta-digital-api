@@ -7,16 +7,6 @@ class CategoriaController {
       const categoria = await Categoria.create({ nome });
       return res.status(201).json(categoria);
     } catch (error) {
-      if (error.name === 'SequelizeUniqueConstraintError') {
-        return res.status(409).json({
-          erro: 'Categoria já cadastrada',
-        });
-      }
-      if (error.name === 'SequelizeValidationError') {
-        return res.status(400).json({
-          erro: error.errors[0].message,
-        });
-      }
       next(error);
     }
   }
@@ -37,30 +27,16 @@ class CategoriaController {
 
       const categoria = await Categoria.findByPk(id);
       if (!categoria) {
-        return res.status(404).json({
-          erro: 'Categoria não encontrada',
-        });
+        return res.status(404).json({ erro: 'Categoria não encontrada' });
       }
 
       if (categoria.nome === 'Outros' && nome !== 'Outros') {
-        return res.status(400).json({
-          erro: 'A categoria "Outros" não pode ser renomeada',
-        });
+        return res.status(400).json({ erro: 'A categoria "Outros" não pode ser renomeada' });
       }
 
       await categoria.update({ nome });
       return res.status(200).json(categoria);
     } catch (error) {
-      if (error.name === 'SequelizeUniqueConstraintError') {
-        return res.status(409).json({
-          erro: 'Categoria já cadastrada',
-        });
-      }
-      if (error.name === 'SequelizeValidationError') {
-        return res.status(400).json({
-          erro: error.errors[0].message,
-        });
-      }
       next(error);
     }
   }
@@ -71,15 +47,11 @@ class CategoriaController {
 
       const categoria = await Categoria.findByPk(id);
       if (!categoria) {
-        return res.status(404).json({
-          erro: 'Categoria não encontrada',
-        });
+        return res.status(404).json({ erro: 'Categoria não encontrada' });
       }
 
       if (categoria.nome === 'Outros') {
-        return res.status(400).json({
-          erro: 'A categoria "Outros" não pode ser excluída',
-        });
+        return res.status(400).json({ erro: 'A categoria "Outros" não pode ser excluída' });
       }
 
       const comprovantesVinculados = await Comprovante.count({
@@ -87,9 +59,7 @@ class CategoriaController {
       });
 
       if (comprovantesVinculados > 0) {
-        return res.status(400).json({
-          erro: 'Não é possível excluir categoria com comprovantes vinculados',
-        });
+        return res.status(400).json({ erro: 'Não é possível excluir categoria com comprovantes vinculados' });
       }
 
       await categoria.destroy();
