@@ -4,6 +4,13 @@ const Conta = require('./Conta');
 
 class Usuario extends Conta {}
 
+Usuario.associate = (models) => {
+  Usuario.hasMany(models.Comprovante, {
+    foreignKey: 'usuarioId',
+    as: 'comprovantes',
+  });
+};
+
 Usuario.init(
   {
     ...Conta.contaAttributes,

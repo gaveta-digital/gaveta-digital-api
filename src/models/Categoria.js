@@ -2,6 +2,13 @@ const { Model, DataTypes } = require('sequelize');
 const sequelize = require('../config/database');
 
 class Categoria extends Model {
+  static associate(models) {
+    Categoria.hasMany(models.Comprovante, {
+      foreignKey: 'categoriaId',
+      as: 'comprovantes',
+    });
+  }
+
   static async seedIniciais() {
     const nomes = [
       'Material',
@@ -27,7 +34,7 @@ Categoria.init(
     },
     nome: {
       type: DataTypes.STRING(50),
-      allowNull: false,
+      defaultValue: 'Outros',
       unique: {
         msg: 'Categoria já cadastrada',
       },
