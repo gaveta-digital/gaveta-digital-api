@@ -2,6 +2,13 @@ const { Model, DataTypes } = require('sequelize');
 const sequelize = require('../config/database');
 
 class Categoria extends Model {
+  static associate(models) {
+    Categoria.hasMany(models.Comprovante, {
+      foreignKey: 'categoriaId',
+      as: 'comprovantes',
+    });
+  }
+
   static async seedIniciais() {
     const nomes = [
       'Material',
@@ -13,7 +20,7 @@ class Categoria extends Model {
     ];
 
     for (const nome of nomes) {
-      await Categoria.findOrCreate({ where: { nome } });
+      await Categoria.findOrCreate({ where: { nome, usuarioId: null } });
     }
   }
 }
@@ -37,7 +44,7 @@ Categoria.init(
     },
     usuarioId: {
       type: DataTypes.UUID,
-      allowNull: true, // Null para categorias globais de seed, se necessário, ou obrigatório se for sempre por usuário
+      allowNull: true,
     },
   },
   {

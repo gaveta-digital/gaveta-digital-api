@@ -4,13 +4,6 @@ const Usuario = require('./Usuario');
 const Categoria = require('./Categoria');
 const Comprovante = require('./Comprovante');
 
-// Associações
-Usuario.hasMany(Comprovante, { foreignKey: 'usuarioId', as: 'comprovantes' });
-Comprovante.belongsTo(Usuario, { foreignKey: 'usuarioId', as: 'usuario' });
-
-Categoria.hasMany(Comprovante, { foreignKey: 'categoriaId', as: 'comprovantes' });
-Comprovante.belongsTo(Categoria, { foreignKey: 'categoriaId', as: 'categoria' });
-
 const models = {
   Conta,
   Usuario,
