@@ -41,10 +41,14 @@ const UsuarioService ={
 
         //3. gerar token JWT (JSON Web Token) para autenticação
 
+        if (!process.env.JWT_SECRET) {
+            throw new Error('Chave JWT_SECRET não configurada no servidor');
+        }
+
         const token = jwt.sign(
             {id: usuarioExistente.id},
-            process.env.JWT_SECRET || 'segredo', // lembrar de falar pro pessoal colocar a chave no .env enquanto n tiver em prod.
-            {expiresIn: '1d'} // token expira em 1 dia
+            process.env.JWT_SECRET,
+            {expiresIn: '1d'}
         );
         
         //4. Retornar o token e os dados do usuário (sem a senha)
