@@ -20,18 +20,14 @@ const loginSchema = z.object({
     req.body = loginSchema.parse(req.body);
     next();
     } catch (erro) {
-        // Verifica se o erro foi disparado pelo Zod (erro de validação)
         if (erro instanceof z.ZodError) {
             return res.status(400).json({
-                status: 'erro',
-                mensagens: erro.issues.map(e => e.message)
+                erro: erro.issues[0].message
             });
         }
         
-        // Se for qualquer outro erro bizarro no sistema, devolve 500
         return res.status(500).json({
-            status: 'erro',
-            mensagem: erro.message || 'Erro interno no servidor'
+            erro: erro.message || 'Erro interno no servidor'
         });
     }
 };
