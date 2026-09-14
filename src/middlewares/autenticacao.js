@@ -16,6 +16,9 @@ const autenticacao = (req, res, next) => {
     try{
         //4. Jwt verifica se o token foi assinado
         //pela chave secreta que eu defini no .env, e se o token não foi expirado
+        if (!process.env.JWT_SECRET) {
+            throw new Error('Chave JWT_SECRET não configurada no servidor');
+        }
         const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
         //5. Se o token for válido, guardar id do usuário que estava dentro do token na requisição, assim o controller vai saber qual usuário está fazendo a requisição.
