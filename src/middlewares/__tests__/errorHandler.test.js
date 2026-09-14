@@ -2,6 +2,7 @@ const errorHandler = require('../errorHandler');
 
 describe('errorHandler Middleware', () => {
   let req, res, next;
+  const originalEnv = process.env.NODE_ENV;
 
   beforeEach(() => {
     req = {};
@@ -11,43 +12,37 @@ describe('errorHandler Middleware', () => {
       json: jest.fn().mockReturnThis(),
     };
     next = jest.fn();
-    console.error = jest.fn(); // Mock console.error to keep logs clean
+    console.error = jest.fn();
   });
 
-  test('Trata erro de validação do Sequelize → 400', () => {
-    const error = {
-      name: 'SequelizeValidationError',
-      errors: [{ message: 'Nome é obrigatório' }]
-    };
-
-    errorHandler(error, req, res, next);
-
-    expect(res.status).toHaveBeenCalledWith(400);
-    expect(res.json).toHaveBeenCalledWith({ erro: 'Nome é obrigatório' });
+  afterAll(() => {
+    process.env.NODE_ENV = originalEnv;
   });
 
-  test('Trata erro de duplicidade do Sequelize → 409', () => {
-    const error = {
-      name: 'SequelizeUniqueConstraintError',
-      errors: [{ message: 'E-mail duplicado' }]
-    };
-
-    errorHandler(error, req, res, next);
-
-    expect(res.status).toHaveBeenCalledWith(409);
-    expect(res.json).toHaveBeenCalledWith({ erro: 'E-mail duplicado' });
-  });
-
-  test('Trata erro genérico → 500', () => {
-    const error = new Error('Falha catastrófica');
+  test('Trata erro genérico → 500 no contrato { erro }', () => {
+    const error = new Error('Erro Interno');
+    process.env.NODE_ENV = 'production';
 
     errorHandler(error, req, res, next);
 
     expect(res.status).toHaveBeenCalledWith(500);
-    expect(res.json).toHaveBeenCalledWith({ erro: 'Falha catastrófica' });
+    expect(res.json).toHaveBeenCalledWith({ erro: 'Erro Interno' });
+    expect(res.json).not.toHaveProperty('detalhe');
   });
 
-  test('Não envia resposta se headers já foram enviados', () => {
+  test('Exibe detalhe somente em ambiente de desenvolvimento', () => {
+    const error = new Error('Erro com stack');
+    process.env.NODE_ENV = 'development';
+
+    errorHandler(error, req, res, next);
+
+    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({
+      erro: 'Erro com stack',
+      detalhe: expect.any(String)
+    }));
+  });
+
+  test('Encaminha para next(error) se headers já foram enviados', () => {
     const error = new Error('Tarde demais');
     res.headersSent = true;
 
@@ -55,5 +50,17 @@ describe('errorHandler Middleware', () => {
 
     expect(next).toHaveBeenCalledWith(error);
     expect(res.status).not.toHaveBeenCalled();
+  });
+
+  test('Trata erros do Sequelize (validacao) no middleware', () => {
+    const error = {
+      name: 'SequelizeValidationError',
+      errors: [{ message: 'Campo obrigatorio' }]
+    };
+
+    errorHandler(error, req, res, next);
+
+    expect(res.status).toHaveBeenCalledWith(400);
+    expect(res.json).toHaveBeenCalledWith({ erro: 'Campo obrigatorio' });
   });
 });

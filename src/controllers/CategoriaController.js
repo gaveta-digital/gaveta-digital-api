@@ -4,7 +4,13 @@ class CategoriaController {
   static async create(req, res, next) {
     try {
       const { nome } = req.body;
-      const categoria = await Categoria.create({ nome });
+      const usuarioId = req.usuario?.id;
+
+      if (!nome) {
+        return res.status(400).json({ erro: 'O nome da categoria é obrigatório' });
+      }
+
+      const categoria = await Categoria.create({ nome, usuarioId });
       return res.status(201).json(categoria);
     } catch (error) {
       next(error);
@@ -13,7 +19,10 @@ class CategoriaController {
 
   static async list(req, res, next) {
     try {
-      const categorias = await Categoria.findAll();
+      const usuarioId = req.usuario?.id;
+      const categorias = await Categoria.findAll({
+        where: { usuarioId },
+      });
       return res.status(200).json(categorias);
     } catch (error) {
       next(error);
@@ -24,8 +33,16 @@ class CategoriaController {
     try {
       const { id } = req.params;
       const { nome } = req.body;
+      const usuarioId = req.usuario?.id;
 
-      const categoria = await Categoria.findByPk(id);
+      if (!nome) {
+        return res.status(400).json({ erro: 'O nome da categoria é obrigatório para atualização' });
+      }
+
+      const categoria = await Categoria.findOne({
+        where: { id, usuarioId },
+      });
+
       if (!categoria) {
         return res.status(404).json({ erro: 'Categoria não encontrada' });
       }
@@ -44,8 +61,12 @@ class CategoriaController {
   static async delete(req, res, next) {
     try {
       const { id } = req.params;
+      const usuarioId = req.usuario?.id;
 
-      const categoria = await Categoria.findByPk(id);
+      const categoria = await Categoria.findOne({
+        where: { id, usuarioId },
+      });
+
       if (!categoria) {
         return res.status(404).json({ erro: 'Categoria não encontrada' });
       }

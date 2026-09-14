@@ -25,7 +25,7 @@ const errorHandler = (err, req, res, next) => {
     response.detalhe = err.stack;
   }
 
-  res.status(statusCode).json(response);
+  return res.status(statusCode).json(response);
 };
 
 module.exports = errorHandler;

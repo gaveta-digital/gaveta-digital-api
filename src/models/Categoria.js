@@ -28,9 +28,6 @@ Categoria.init(
     nome: {
       type: DataTypes.STRING(50),
       allowNull: false,
-      unique: {
-        msg: 'Categoria já cadastrada',
-      },
       validate: {
         len: {
           args: [1, 50],
@@ -38,11 +35,22 @@ Categoria.init(
         },
       },
     },
+    usuarioId: {
+      type: DataTypes.UUID,
+      allowNull: true, // Null para categorias globais de seed, se necessário, ou obrigatório se for sempre por usuário
+    },
   },
   {
     sequelize,
     modelName: 'Categoria',
     tableName: 'categorias',
+    indexes: [
+      {
+        unique: true,
+        fields: ['nome', 'usuarioId'],
+        msg: 'Categoria já cadastrada para este usuário',
+      },
+    ],
   }
 );
 
