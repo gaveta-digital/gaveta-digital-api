@@ -4,10 +4,9 @@ const autenticacao = (req, res, next) => {
     //1. Verificar se o token ta dentro do cabeçalho da autenticação
     const authHeader = req.headers['authorization'];
     //2. Se não tiver, barrar
-    if(!authHeader) {
+    if(!authHeader || !authHeader.startsWith('Bearer ')) {
         return res.status(401).json({
-            status: 'erro',
-            mensagem: 'Token não fornecido'
+            erro: 'Token não fornecido ou malformado'
         })
     }
     //3.Dividir o texto do cabeçalho em duas partes, e pegar a segunda parte (o token)
@@ -22,14 +21,15 @@ const autenticacao = (req, res, next) => {
         const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
         //5. Se o token for válido, guardar id do usuário que estava dentro do token na requisição, assim o controller vai saber qual usuário está fazendo a requisição.
+        if (!decoded.id) {
+            throw new Error('Payload inválido');
+        }
         req.usuarioId = decoded.id;
         //6. chamar next pro usuário passar
         next();
     } catch (erro){
-        //Se o token for invalido, cai aqui
         return res.status(401).json({
-            status: 'erro',
-            mensagem: 'Token inválido ou expirado'
+            erro: 'Token inválido ou expirado'
         })
     }
 
