@@ -1,5 +1,5 @@
 const bcrypt = require('bcryptjs');
-const Usuario = require ('../models/Usuario')
+const {sequelize, Usuario, Categoria} = require('../models');
 const jwt = require('jsonwebtoken');
 
 const saltRounds = 10;
@@ -16,9 +16,18 @@ const UsuarioService ={
         //2.Gerar hash da senha
         const senhaHash = await bcrypt.hash(senha, saltRounds);
     
-        //3. Criari usuário
-    
-        const novoUsuario = await Usuario.create({ nome, email, senha: senhaHash });
+        //3. Criar usuário e categorias iniciais dentro de uma Transação
+        const novoUsuario = await sequelize.transaction(async (t) => {
+            // Cria o usuário vinculando-o a esta transação
+            const user = await Usuario.create({ nome, email, senha: senhaHash }, { transaction: t });
+            
+            // Chama a inicialização das 6 categorias usando a mesma transação
+            if (Categoria.seedIniciais) {
+                await Categoria.seedIniciais(user.id, { transaction: t });
+            }
+            
+            return user;
+        });
     
         //4. Retornar usuário criado
         const usuarioSemSenha = novoUsuario.toJSON();
