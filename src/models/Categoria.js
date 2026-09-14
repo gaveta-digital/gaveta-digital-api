@@ -35,6 +35,7 @@ Categoria.init(
     nome: {
       type: DataTypes.STRING(50),
       allowNull: false,
+      defaultValue: 'Outros',
       validate: {
         len: {
           args: [1, 50],

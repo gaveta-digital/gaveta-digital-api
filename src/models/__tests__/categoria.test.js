@@ -11,7 +11,7 @@ describe('Model Categoria', () => {
   });
 
   test('cria categoria valida', async () => {
-    const categoria = await Categoria.create({ nome: 'Saude' });
+    const categoria = await Categoria.create({ nome: 'Saude', usuarioId: '123e4567-e89b-12d3-a456-426614174000' });
 
     expect(categoria.id).toBeDefined();
     expect(categoria.nome).toBe('Saude');
@@ -23,8 +23,18 @@ describe('Model Categoria', () => {
     expect(categoria.nome).toBe('Outros');
   });
 
-  test('rejeita categoria com nome duplicado', async () => {
-    await expect(Categoria.create({ nome: 'Saude' })).rejects.toThrow();
+  test('rejeita categoria com nome duplicado para o mesmo usuario', async () => {
+    const usuarioId = '123e4567-e89b-12d3-a456-426614174001';
+    await Categoria.create({ nome: 'Duplicada', usuarioId });
+    await expect(Categoria.create({ nome: 'Duplicada', usuarioId })).rejects.toThrow();
+  });
+
+  test('permite categoria com mesmo nome para usuarios diferentes', async () => {
+    const nome = 'Compartilhada';
+    await Categoria.create({ nome, usuarioId: '123e4567-e89b-12d3-a456-426614174002' });
+    const cat2 = await Categoria.create({ nome, usuarioId: '123e4567-e89b-12d3-a456-426614174003' });
+
+    expect(cat2.id).toBeDefined();
   });
 
   test('mantem Outros apos o seed', async () => {
