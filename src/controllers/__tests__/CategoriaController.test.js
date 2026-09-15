@@ -21,7 +21,7 @@ describe('CategoriaController (Unit Tests)', () => {
     req = {
       body: {},
       params: {},
-      usuario: { id: mockUsuarioId }
+      usuarioId: mockUsuarioId
     };
     res = {
       status: jest.fn().mockReturnThis(),

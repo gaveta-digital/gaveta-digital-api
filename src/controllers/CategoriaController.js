@@ -4,7 +4,7 @@ class CategoriaController {
   static async create(req, res, next) {
     try {
       const { nome } = req.body;
-      const usuarioId = req.usuario?.id;
+      const usuarioId = req.usuarioId;
 
       if (!nome) {
         return res.status(400).json({ erro: 'O nome da categoria é obrigatório' });
@@ -19,7 +19,7 @@ class CategoriaController {
 
   static async list(req, res, next) {
     try {
-      const usuarioId = req.usuario?.id;
+      const usuarioId = req.usuarioId;
       const categorias = await Categoria.findAll({
         where: { usuarioId },
       });
@@ -33,7 +33,7 @@ class CategoriaController {
     try {
       const { id } = req.params;
       const { nome } = req.body;
-      const usuarioId = req.usuario?.id;
+      const usuarioId = req.usuarioId;
 
       if (!nome) {
         return res.status(400).json({ erro: 'O nome da categoria é obrigatório para atualização' });
@@ -61,7 +61,7 @@ class CategoriaController {
   static async delete(req, res, next) {
     try {
       const { id } = req.params;
-      const usuarioId = req.usuario?.id;
+      const usuarioId = req.usuarioId;
 
       const categoria = await Categoria.findOne({
         where: { id, usuarioId },
