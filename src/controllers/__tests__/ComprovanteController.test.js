@@ -74,8 +74,7 @@ describe('ComprovanteController', () => {
 
     expect(response.status).toBe(401);
     expect(response.body).toEqual({
-      status: 'erro',
-      mensagem: 'Token não fornecido',
+      erro: 'Token não fornecido ou malformado',
     });
     expect(ComprovanteService.criar).not.toHaveBeenCalled();
   });
