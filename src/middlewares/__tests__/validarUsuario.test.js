@@ -22,14 +22,16 @@ describe('Middleware validarUsuario (Zod)', () => {
             expect(req.body.nome).toBe("João D'Ávila-Silva");
         });
 
-        test('aceita exatos 2 e exatos 100 caracteres', () => {
+        test('aceita exatos 2 e exatos 100 caracteres e nomes compostos validos', () => {
             req.body = { nome: "Zé", email: "a@a.com", senha: "Password1" };
             validarUsuario(req, res, next);
             expect(next).toHaveBeenCalled();
-
             req.body = { nome: str(100), email: "a@a.com", senha: "Password1" };
             validarUsuario(req, res, next);
             expect(next).toHaveBeenCalledTimes(2);
+            req.body = { nome: "Anne-Marie", email: "a@a.com", senha: "Password1" };
+            validarUsuario(req, res, next);
+            expect(next).toHaveBeenCalledTimes(3);
         });
 
         test('rejeita 1 caractere ou 101 caracteres', () => {
@@ -41,9 +43,9 @@ describe('Middleware validarUsuario (Zod)', () => {
             validarUsuario(req, res, next);
             expect(res.status).toHaveBeenCalledWith(400);
         });
-
-        test('rejeita números, tipos inválidos, ausência, null, vazio e apenas espaços', () => {
-            const casos = ["Ana 123", null, undefined, "", "   ", 123, {}, []];
+        
+        test('rejeita números, símbolos proibidos, emojis, ausência, null, vazio e apenas espaços', () => {
+            const casos = ["Ana 123", null, undefined, "", "   ", 123, {}, [], "--", "''", "××", "÷÷", "Ana@", "Ana😀"];
             casos.forEach((nome) => {
                 req.body = { nome, email: "a@a.com", senha: "Password1" };
                 validarUsuario(req, res, next);
