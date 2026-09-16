@@ -18,7 +18,7 @@ describe('Model Comprovante', () => {
       email: 'joao@exemplo.com',
       senha: 'SenhaSegura123!',
     });
-    categoria = await Categoria.create({ nome: 'Transporte' });
+    categoria = await Categoria.create({ nome: 'Transporte', usuarioId: usuario.id });
   });
 
   afterAll(async () => {
