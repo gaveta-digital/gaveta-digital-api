@@ -1,6 +1,38 @@
 const Categoria = require('../Categoria');
 const { validarNomeCategoria, normalizarNome } = require('../Categoria');
 
+describe('Model Categoria - Renomeação', () => {
+  afterEach(() => jest.restoreAllMocks());
+
+  test.each(['Pet', '  Alimentação  '])(
+    'envia o nome e sua normalização juntos à persistência ao renomear para %s',
+    async (nome) => {
+      // Simula uma instância carregada do banco, sem conectar ou persistir.
+      const categoria = Categoria.build(
+        { id: 'cat-1', usuarioId: 'usr-1', nome: 'Água', nomeNormalizado: 'agua' },
+        { isNewRecord: false, raw: true }
+      );
+      let valoresEnviados;
+      const update = jest.spyOn(Categoria.queryInterface, 'update')
+        .mockImplementation(async (instance, tabela, valores) => {
+          // O Sequelize modifica esse objeto depois da escrita; capture o envio.
+          valoresEnviados = { ...valores };
+          return [instance, 1];
+        });
+
+      await categoria.update({ nome });
+
+      expect(update).toHaveBeenCalledTimes(1);
+      const [, , , where] = update.mock.calls[0];
+      expect(valoresEnviados).toEqual(expect.objectContaining({
+        nome: nome.trim(),
+        nomeNormalizado: normalizarNome(nome),
+      }));
+      expect(where).toEqual({ id: 'cat-1' });
+    }
+  );
+});
+
 describe('Model Categoria - Validações dos Campos nome e nomeNormalizado', () => {
   test('aceita nome com 1 e 50 caracteres, e preserva a grafia formatada', () => {
     const nome1 = 'A';

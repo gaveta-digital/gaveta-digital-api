@@ -96,13 +96,18 @@ Categoria.init(
     nome: {
       type: DataTypes.STRING(50),
       allowNull: false,
+      set(value) {
+        this.setDataValue('nome', typeof value === 'string' ? value.trim() : value);
+        // Marcar ambos como alterados antes de update() selecionar os campos da escrita.
+        this.setDataValue('nomeNormalizado', normalizarNome(value));
+      },
       validate: {
         customValidate(value) {
           validarNomeCategoria(value);
         },
       },
     },
-    // Campo 'nomeNormalizado': minúsculas, sem acentos e sem espaços para controle de unicidade por usuário
+    // Campo de comparação: minúsculas, sem acentos e sem espaços nas extremidades.
     nomeNormalizado: {
       type: DataTypes.STRING(50),
       allowNull: false,
