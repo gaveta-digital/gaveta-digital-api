@@ -1,11 +1,12 @@
 const { Router } = require('express');
 const CategoriaController = require('../controllers/CategoriaController');
+const autenticacao = require('../middlewares/autenticacao');
 
 const router = Router();
 
-router.post('/', CategoriaController.create);
-router.get('/', CategoriaController.list);
-router.put('/:id', CategoriaController.update);
-router.delete('/:id', CategoriaController.delete);
+router.post('/', autenticacao, CategoriaController.create);
+router.get('/', autenticacao, CategoriaController.list);
+router.put('/:id', autenticacao, CategoriaController.update);
+router.delete('/:id', autenticacao, CategoriaController.delete);
 
 module.exports = router;
