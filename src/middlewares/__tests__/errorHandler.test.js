@@ -1,8 +1,9 @@
 const errorHandler = require('../errorHandler');
 
 describe('errorHandler Middleware', () => {
-  let req, res, next;
-  const originalEnv = process.env.NODE_ENV;
+  let req;
+  let res;
+  let next;
 
   beforeEach(() => {
     req = {};
@@ -12,55 +13,84 @@ describe('errorHandler Middleware', () => {
       json: jest.fn().mockReturnThis(),
     };
     next = jest.fn();
-    console.error = jest.fn();
+    jest.clearAllMocks();
   });
 
-  afterAll(() => {
-    process.env.NODE_ENV = originalEnv;
+  test('encaminha pro next() se headers ja foram enviados', () => {
+    res.headersSent = true;
+    const erro = new Error('Teste erro');
+
+    errorHandler(erro, req, res, next);
+
+    expect(next).toHaveBeenCalledWith(erro);
+    expect(res.status).not.toHaveBeenCalled();
+    expect(res.json).not.toHaveBeenCalled();
   });
 
-  test('Trata erro genérico → 500 no contrato { erro }', () => {
-    const error = new Error('Erro Interno');
-    process.env.NODE_ENV = 'production';
+  test('retorna 500 com erro generico se statusCode nao for definido', () => {
+    const erro = new Error('Falha desconhecida');
 
-    errorHandler(error, req, res, next);
+    errorHandler(erro, req, res, next);
 
     expect(res.status).toHaveBeenCalledWith(500);
-    expect(res.json).toHaveBeenCalledWith({ erro: 'Erro Interno' });
-    expect(res.json).not.toHaveProperty('detalhe');
+    expect(res.json).toHaveBeenCalledWith({
+      erro: 'Falha desconhecida',
+    });
   });
 
-  test('Exibe detalhe somente em ambiente de desenvolvimento', () => {
-    const error = new Error('Erro com stack');
+  test('retorna statusCode customizado se presente no erro', () => {
+    const erro = new Error('Email já cadastrado');
+    erro.statusCode = 409;
+
+    errorHandler(erro, req, res, next);
+
+    expect(res.status).toHaveBeenCalledWith(409);
+    expect(res.json).toHaveBeenCalledWith({
+      erro: 'Email já cadastrado',
+    });
+  });
+
+  test('inclui stack em desenvolvimento', () => {
     process.env.NODE_ENV = 'development';
+    const erro = new Error('Erro teste');
+    erro.statusCode = 500;
 
-    errorHandler(error, req, res, next);
+    errorHandler(erro, req, res, next);
 
-    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({
-      erro: 'Erro com stack',
-      detalhe: expect.any(String)
-    }));
+    expect(res.json).toHaveBeenCalledWith(
+      expect.objectContaining({
+        erro: 'Erro teste',
+        detalhe: expect.any(String),
+      })
+    );
+    expect(res.json.mock.calls[0][0].detalhe).toContain('Error: Erro teste');
+
+    process.env.NODE_ENV = 'test';
   });
 
-  test('Encaminha para next(error) se headers já foram enviados', () => {
-    const error = new Error('Tarde demais');
-    res.headersSent = true;
+  test('nao inclui stack em producao', () => {
+    process.env.NODE_ENV = 'production';
+    const erro = new Error('Erro teste');
+    erro.statusCode = 500;
 
-    errorHandler(error, req, res, next);
+    errorHandler(erro, req, res, next);
 
-    expect(next).toHaveBeenCalledWith(error);
-    expect(res.status).not.toHaveBeenCalled();
+    expect(res.json).toHaveBeenCalledWith({
+      erro: 'Erro teste',
+    });
+    expect(res.json.mock.calls[0][0].detalhe).toBeUndefined();
+
+    process.env.NODE_ENV = 'test';
   });
 
-  test('Trata erros do Sequelize (validacao) no middleware', () => {
-    const error = {
-      name: 'SequelizeValidationError',
-      errors: [{ message: 'Campo obrigatorio' }]
-    };
+  test('retorna mensagem padrao se erro nao tiver message', () => {
+    const erro = {};
 
-    errorHandler(error, req, res, next);
+    errorHandler(erro, req, res, next);
 
-    expect(res.status).toHaveBeenCalledWith(400);
-    expect(res.json).toHaveBeenCalledWith({ erro: 'Campo obrigatorio' });
+    expect(res.status).toHaveBeenCalledWith(500);
+    expect(res.json).toHaveBeenCalledWith({
+      erro: 'Erro interno do servidor',
+    });
   });
 });
