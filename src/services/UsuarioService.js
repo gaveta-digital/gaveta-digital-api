@@ -20,12 +20,10 @@ const UsuarioService ={
         const novoUsuario = await sequelize.transaction(async (t) => {
             // Cria o usuário vinculando-o a esta transação
             const user = await Usuario.create({ nome, email, senha: senhaHash }, { transaction: t });
-            
+
             // Chama a inicialização das 6 categorias usando a mesma transação
-            if (Categoria.seedIniciais) {
-                await Categoria.seedIniciais(user.id, { transaction: t });
-            }
-            
+            await Categoria.seedIniciais(user.id, { transaction: t });
+
             return user;
         });
     
