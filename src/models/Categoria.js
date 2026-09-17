@@ -1,16 +1,60 @@
 const { Model, DataTypes } = require('sequelize');
 const sequelize = require('../config/database');
 
+/**
+ * Normaliza o nome da categoria para fins de comparação e unicidade.
+ * Remove espaços das extremidades, converte para minúsculas,
+ * e remove caracteres acentuados.
+ */
+function normalizarNome(nome) {
+  if (typeof nome !== 'string') return '';
+  return nome
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
+}
+
+/**
+ * Valida o nome da categoria de acordo com as regras de negócio:
+ * - Deve ser string
+ * - De 1 a 50 caracteres após trim
+ * - Não aceita vazio ou apenas espaços
+ * - Deve conter pelo menos uma letra (incluindo acentuadas)
+ */
+function validarNomeCategoria(nome) {
+  if (typeof nome !== 'string') {
+    throw new Error('O nome da categoria deve ser um texto (string)');
+  }
+  const nomeTrimmed = nome.trim();
+  if (nomeTrimmed.length < 1 || nomeTrimmed.length > 50) {
+    throw new Error('O nome da categoria deve ter entre 1 e 50 caracteres');
+  }
+  if (!/[\p{L}]/u.test(nomeTrimmed)) {
+    throw new Error('O nome da categoria deve conter pelo menos uma letra');
+  }
+  return nomeTrimmed;
+}
+
 class Categoria extends Model {
-  static associate(models) {
-    Categoria.hasMany(models.Comprovante, {
-      foreignKey: 'categoriaId',
-      as: 'comprovantes',
-    });
+  static normalizarNome(nome) {
+    return normalizarNome(nome);
   }
 
-  static async seedIniciais() {
-    const nomes = [
+  static validarNome(nome) {
+    return validarNomeCategoria(nome);
+  }
+
+  /**
+   * Inicializa as 6 categorias padrão para um usuário específico.
+   * Supõe receber o usuarioId do proprietário e opcionalmente uma transação.
+   */
+  static async seedIniciais(usuarioId, { transaction } = {}) {
+    if (!usuarioId) {
+      throw new Error('É necessário informar o usuarioId do proprietário para inicializar as categorias.');
+    }
+
+    const categoriasPadrao = [
       'Material',
       'Alimentação',
       'Transporte',
@@ -19,8 +63,24 @@ class Categoria extends Model {
       'Outros',
     ];
 
-    for (const nome of nomes) {
-      await Categoria.findOrCreate({ where: { nome } });
+    for (const nomeOriginal of categoriasPadrao) {
+      const nomeNorm = normalizarNome(nomeOriginal);
+
+      const existe = await Categoria.findOne({
+        where: { usuarioId, nomeNormalizado: nomeNorm },
+        transaction,
+      });
+
+      if (!existe) {
+        await Categoria.create(
+          {
+            nome: nomeOriginal,
+            nomeNormalizado: nomeNorm,
+            usuarioId,
+          },
+          { transaction }
+        );
+      }
     }
   }
 }
@@ -32,17 +92,32 @@ Categoria.init(
       defaultValue: DataTypes.UUIDV4,
       primaryKey: true,
     },
+    // Campo 'nome': armazena a grafia original formatada (maiúsculas e acentos) para exibição
     nome: {
       type: DataTypes.STRING(50),
-      defaultValue: 'Outros',
-      unique: {
-        msg: 'Categoria já cadastrada',
+      allowNull: false,
+      set(value) {
+        this.setDataValue('nome', typeof value === 'string' ? value.trim() : value);
+        // Marcar ambos como alterados antes de update() selecionar os campos da escrita.
+        this.setDataValue('nomeNormalizado', normalizarNome(value));
       },
       validate: {
-        len: {
-          args: [1, 50],
-          msg: 'O nome deve ter no máximo 50 caracteres',
+        customValidate(value) {
+          validarNomeCategoria(value);
         },
+      },
+    },
+    // Campo de comparação: minúsculas, sem acentos e sem espaços nas extremidades.
+    nomeNormalizado: {
+      type: DataTypes.STRING(50),
+      allowNull: false,
+    },
+    usuarioId: {
+      type: DataTypes.UUID,
+      allowNull: false,
+      references: {
+        model: 'contas',
+        key: 'id',
       },
     },
   },
@@ -50,7 +125,26 @@ Categoria.init(
     sequelize,
     modelName: 'Categoria',
     tableName: 'categorias',
+    indexes: [
+      {
+        unique: true,
+        fields: ['usuarioId', 'nomeNormalizado'],
+      },
+    ],
+    hooks: {
+      beforeValidate: (categoria) => {
+        if (categoria.usuarioId === undefined || categoria.usuarioId === null) {
+          throw new Error('A categoria deve pertencer a um usuário (proprietário)');
+        }
+        if (typeof categoria.nome === 'string') {
+          categoria.nome = categoria.nome.trim();
+          categoria.nomeNormalizado = normalizarNome(categoria.nome);
+        }
+      },
+    },
   }
 );
 
 module.exports = Categoria;
+module.exports.normalizarNome = normalizarNome;
+module.exports.validarNomeCategoria = validarNomeCategoria;

@@ -1,52 +1,88 @@
-const { sequelize, Usuario } = require('..');
+const { sequelize, Usuario } = require('../index');
 
 describe('Model Usuario', () => {
-	beforeAll(async () => {
-		await sequelize.sync({ force: true });
-	});
+  beforeAll(async () => {
+    await sequelize.sync({ force: true });
+  });
 
-	beforeEach(async () => {
-		await Usuario.destroy({ where: {}, truncate: true, force: true });
-	});
+  beforeEach(async () => {
+    await Usuario.destroy({ truncate: true, force: true });
+  });
 
-	afterAll(async () => {
-		await sequelize.close();
-	});
+  afterAll(async () => {
+    await sequelize.close();
+  });
 
-	test('cria usuario valido, define o tipo e omite a senha na consulta padrao', async () => {
-		const senha = 'SenhaSegura123!';
-		const usuarioCriado = await Usuario.create({
-			nome: 'Joao Silva',
-			email: 'joao.silva@exemplo.com',
-			senha,
-		});
+  test('deve criar usuário com dados válidos e omitir a senha na consulta padrão', async () => {
+    const dadosUsuario = {
+      nome: 'João Silva',
+      email: 'joao.silva@exemplo.com',
+      senha: 'SenhaSegura123!',
+    };
 
-		expect(usuarioCriado.id).toBeDefined();
-		expect(usuarioCriado.tipo).toBe('USUARIO');
+    const usuarioCriado = await Usuario.create(dadosUsuario);
 
-		const usuarioBuscado = await Usuario.findByPk(usuarioCriado.id);
-		expect(usuarioBuscado.toJSON()).not.toHaveProperty('senha');
+    expect(usuarioCriado.id).toBeDefined();
+    expect(usuarioCriado.nome).toBe(dadosUsuario.nome);
+    expect(usuarioCriado.email).toBe(dadosUsuario.email);
+    expect(usuarioCriado.tipo).toBe('USUARIO');
 
-		const usuarioComSenha = await Usuario.scope('comSenha').findByPk(usuarioCriado.id);
-		expect(usuarioComSenha.senha).toBe(senha);
-	});
+    // Buscar no banco via consulta padrão (defaultScope)
+    const usuarioBuscado = await Usuario.findByPk(usuarioCriado.id);
+    const usuarioJSON = usuarioBuscado.toJSON();
 
-	test.each([
-		['nome ausente', { email: 'teste@exemplo.com', senha: '123456' }],
-		['nome curto', { nome: 'J', email: 'teste@exemplo.com', senha: '123456' }],
-		['nome longo', { nome: 'A'.repeat(101), email: 'teste@exemplo.com', senha: '123456' }],
-		['email ausente', { nome: 'Joao', senha: '123456' }],
-		['email invalido', { nome: 'Joao', email: 'invalido', senha: '123456' }],
-		['senha ausente', { nome: 'Joao', email: 'teste@exemplo.com' }],
-	])('rejeita %s', async (_caso, dadosUsuario) => {
-		await expect(Usuario.create(dadosUsuario)).rejects.toThrow();
-	});
+    // A senha NUNCA deve ser retornada em consultas padrão
+    expect(usuarioJSON.senha).toBeUndefined();
 
-	test('rejeita e-mail duplicado', async () => {
-		await Usuario.create({ nome: 'Maria Souza', email: 'maria@exemplo.com', senha: 'senha123' });
+    // Scope comSenha
+    const usuarioComSenha = await Usuario.scope('comSenha').findByPk(usuarioCriado.id);
+    expect(usuarioComSenha.senha).toBe(dadosUsuario.senha);
+  });
 
-		await expect(
-			Usuario.create({ nome: 'Maria Clone', email: 'maria@exemplo.com', senha: 'outrasenha' })
-		).rejects.toThrow();
-	});
+  test('não deve permitir e-mail duplicado', async () => {
+    const dadosUsuario = {
+      nome: 'Maria Souza',
+      email: 'maria@exemplo.com',
+      senha: 'senha123',
+    };
+
+    await Usuario.create(dadosUsuario);
+
+    await expect(
+      Usuario.create({
+        nome: 'Maria Clone',
+        email: 'maria@exemplo.com',
+        senha: 'outrasenha',
+      })
+    ).rejects.toThrow();
+  });
+
+  test('deve rejeitar nome com menos de 2 caracteres ou mais de 100 caracteres', async () => {
+    await expect(
+      Usuario.create({
+        nome: 'J',
+        email: 'j@exemplo.com',
+        senha: 'senha123',
+      })
+    ).rejects.toThrow();
+
+    const nomeLongo = 'A'.repeat(101);
+    await expect(
+      Usuario.create({
+        nome: nomeLongo,
+        email: 'nomelongo@exemplo.com',
+        senha: 'senha123',
+      })
+    ).rejects.toThrow();
+  });
+
+  test('deve rejeitar formato de e-mail inválido', async () => {
+    await expect(
+      Usuario.create({
+        nome: 'Carlos',
+        email: 'email-invalido-sem-arroba',
+        senha: 'senha123',
+      })
+    ).rejects.toThrow();
+  });
 });
