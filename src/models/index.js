@@ -11,6 +11,11 @@ const models = {
   Comprovante,
 };
 
+// Configurar associações dos modelos
+Usuario.hasMany(Categoria, { foreignKey: 'usuarioId', as: 'categorias' });
+Conta.hasMany(Categoria, { foreignKey: 'usuarioId', as: 'categorias' });
+Categoria.belongsTo(Usuario, { foreignKey: 'usuarioId', as: 'usuario' });
+
 Object.keys(models).forEach((modelName) => {
   if (models[modelName].associate) {
     models[modelName].associate(models);
