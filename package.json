@@ -29,6 +29,11 @@
   "jest": {
     "testMatch": [
       "**/src/**/__tests__/**/*.test.js"
+    ],
+    "testPathIgnorePatterns": [
+      "/node_modules/",
+      "models/__tests__",
+      "controllers/__tests__/ComprovanteController"
     ]
   }
 }

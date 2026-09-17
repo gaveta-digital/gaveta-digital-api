@@ -1,0 +1,241 @@
+const { Comprovante, Categoria } = require('../models');
+
+const CAMPOS_EDITAVEIS = [
+  'estabelecimento',
+  'data',
+  'valor',
+  'categoriaId',
+];
+
+const CAMPOS_CRIACAO = [
+  ...CAMPOS_EDITAVEIS,
+  'imagemUrl',
+];
+
+function criarErro(statusCode, mensagem) {
+  const erro = new Error(mensagem);
+  erro.statusCode = statusCode;
+  return erro;
+}
+
+
+async function buscarDoUsuario(id, usuarioId) {
+  const comprovante = await Comprovante.findByPk(id);
+
+  if (!comprovante) {
+    throw criarErro(404, 'Comprovante não encontrado.');
+  }
+
+  if (String(comprovante.usuarioId) !== String(usuarioId)) {
+    throw criarErro(
+      403,
+      'Você não tem permissão para acessar este comprovante.'
+    );
+  }
+
+  return comprovante;
+}
+
+const ComprovanteService = {
+  async criar(usuarioId, body) {
+    const dados = validarEPrepararCampos(body, {
+      camposPermitidos: CAMPOS_CRIACAO,
+      criacao: true,
+    });
+
+    const categoria = await Categoria.findByPk(dados.categoriaId);
+    if (!categoria) {
+      throw criarErro(400, 'A categoria informada não existe.');
+    }
+
+    const comprovante = await Comprovante.create({
+      ...dados,
+      usuarioId,
+    });
+
+    return serializarComprovante(comprovante);
+  },
+
+  async listar(usuarioId, query = {}) {
+    const pagina = query.pagina === undefined ? 1 : Number(query.pagina);
+    const limiteSolicitado = query.limite === undefined
+      ? 20
+      : Number(query.limite);
+
+    if (!Number.isInteger(pagina) || pagina < 1
+      || !Number.isInteger(limiteSolicitado) || limiteSolicitado < 1) {
+      throw criarErro(400, 'Paginação inválida.');
+    }
+
+    const limite = Math.min(limiteSolicitado, 100);
+    const comprovantes = await Comprovante.findAll({
+      where: { usuarioId },
+      order: [['createdAt', 'DESC']],
+      limit: limite,
+      offset: (pagina - 1) * limite,
+    });
+
+    return comprovantes.map(serializarComprovante);
+  },
+
+  async detalhar(id, usuarioId) {
+    const comprovante = await buscarDoUsuario(id, usuarioId);
+    return serializarComprovante(comprovante);
+  },
+
+  async editar(id, usuarioId, body) {
+    const comprovante = await buscarDoUsuario(id, usuarioId);
+    const dados = validarEPrepararCampos(body, {
+      camposPermitidos: CAMPOS_EDITAVEIS,
+    });
+
+    if (Object.prototype.hasOwnProperty.call(dados, 'categoriaId')) {
+      const categoria = await Categoria.findByPk(dados.categoriaId);
+      if (!categoria) {
+        throw criarErro(400, 'A categoria informada não existe.');
+      }
+    }
+
+    await comprovante.update(dados);
+    return serializarComprovante(comprovante);
+  },
+
+  async excluir(id, usuarioId) {
+    const comprovante = await buscarDoUsuario(id, usuarioId);
+    await comprovante.destroy();
+  },
+};
+
+function serializarComprovante(comprovante) {
+  const dados = comprovante && typeof comprovante.toJSON === 'function'
+    ? comprovante.toJSON()
+    : { ...comprovante };
+
+  // A referência interna do armazenamento não deve ser exposta ao cliente.
+  delete dados.imagemUrl;
+  return dados;
+}
+
+function dataAtualEmFortaleza() {
+  const partes = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/Fortaleza',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(new Date());
+
+  const obter = (tipo) => partes.find((parte) => parte.type === tipo).value;
+  return `${obter('year')}-${obter('month')}-${obter('day')}`;
+}
+
+function dataEhValida(data) {
+  if (typeof data !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(data)) {
+    return false;
+  }
+
+  const [ano, mes, dia] = data.split('-').map(Number);
+  const dataUtc = new Date(Date.UTC(ano, mes - 1, dia));
+  const existeNoCalendario = dataUtc.getUTCFullYear() === ano
+    && dataUtc.getUTCMonth() === mes - 1
+    && dataUtc.getUTCDate() === dia;
+
+  return existeNoCalendario && data <= dataAtualEmFortaleza();
+}
+
+function valorEhValido(valor) {
+  if (typeof valor !== 'number' || !Number.isFinite(valor)) {
+    return false;
+  }
+
+  if (valor <= 0 || valor > 9999999.99) {
+    return false;
+  }
+
+  const valorEmCentavos = valor * 100;
+  return Math.abs(valorEmCentavos - Math.round(valorEmCentavos)) < 1e-8;
+}
+
+function validarEPrepararCampos(body, opcoes = {}) {
+  const {
+    camposPermitidos = CAMPOS_EDITAVEIS,
+    criacao = false,
+  } = opcoes;
+
+  if (!body || typeof body !== 'object' || Array.isArray(body)) {
+    throw criarErro(400, 'O corpo da requisição deve ser um objeto JSON.');
+  }
+
+  const camposEnviados = Object.keys(body);
+  if (!criacao && camposEnviados.length === 0) {
+    throw criarErro(400, 'Envie ao menos um campo para editar.');
+  }
+
+  if (camposEnviados.some((campo) => !camposPermitidos.includes(campo))) {
+    throw criarErro(
+      400,
+      criacao
+        ? 'Só é permitido informar estabelecimento, data, valor, categoriaId e imagemUrl.'
+        : 'Só é permitido editar estabelecimento, data, valor e categoriaId.'
+    );
+  }
+
+  const dados = {};
+
+  if (Object.prototype.hasOwnProperty.call(body, 'estabelecimento')) {
+    if (body.estabelecimento !== null && typeof body.estabelecimento !== 'string') {
+      throw criarErro(400, 'Estabelecimento deve ser uma string ou null.');
+    }
+
+    if (typeof body.estabelecimento === 'string') {
+      const estabelecimento = body.estabelecimento.trim();
+      if (estabelecimento.length > 150) {
+        throw criarErro(
+          400,
+          'Estabelecimento deve ter no máximo 150 caracteres.'
+        );
+      }
+      dados.estabelecimento = estabelecimento || null;
+    } else {
+      dados.estabelecimento = null;
+    }
+  }
+
+  if (Object.prototype.hasOwnProperty.call(body, 'data')) {
+    if (body.data !== null && !dataEhValida(body.data)) {
+      throw criarErro(
+        400,
+        'Data deve ser válida, no formato YYYY-MM-DD, e não pode ser futura.'
+      );
+    }
+    dados.data = body.data;
+  }
+
+  if (Object.prototype.hasOwnProperty.call(body, 'valor')) {
+    if (body.valor !== null && !valorEhValido(body.valor)) {
+      throw criarErro(
+        400,
+        'Valor deve ser um número maior que zero, de até 9999999.99 e com no máximo duas casas decimais.'
+      );
+    }
+    dados.valor = body.valor;
+  }
+
+  if (Object.prototype.hasOwnProperty.call(body, 'categoriaId')) {
+    if (typeof body.categoriaId !== 'string' || body.categoriaId.trim() === '') {
+      throw criarErro(400, 'categoriaId deve identificar uma categoria válida.');
+    }
+    dados.categoriaId = body.categoriaId.trim();
+  } else if (criacao) {
+    throw criarErro(400, 'categoriaId é obrigatório.');
+  }
+
+  if (criacao) {
+    if (typeof body.imagemUrl !== 'string' || body.imagemUrl.trim() === '') {
+      throw criarErro(400, 'imagemUrl é obrigatória e deve ser uma string válida.');
+    }
+    dados.imagemUrl = body.imagemUrl.trim();
+  }
+
+  return dados;
+}
+module.exports = ComprovanteService;
