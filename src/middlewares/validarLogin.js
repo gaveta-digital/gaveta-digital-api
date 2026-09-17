@@ -13,6 +13,7 @@ const loginSchema = z.object({
         required_error: "Senha é obrigatória", 
         invalid_type_error: "Senha deve ser uma string" 
     })
+    .min(1, "Senha é obrigatória")
     });
 
     const validarLogin = (req, res, next) => {

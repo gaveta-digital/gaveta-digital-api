@@ -1,7 +1,7 @@
 const { z } = require('zod');
 
-const nomeValidoRegex = /^[a-zA-ZÀ-ÿ\s\-']+$/;
-
+const caracteresPermitidos = /^[\p{L}\p{M} '-]+$/u;
+const contemLetra = /\p{L}/u;
 
 const usuarioSchema = z.object({
     nome: z.string({ 
@@ -11,7 +11,8 @@ const usuarioSchema = z.object({
     .trim() // Remove os espaços das extremidades antes de validar o tamanho
     .min(2, "O nome deve ter no mínimo 2 caracteres")
     .max(100, "O nome deve ter no máximo 100 caracteres")
-    .regex(nomeValidoRegex, "O nome contém caracteres inválidos"),
+    .regex(caracteresPermitidos, "O nome contém caracteres inválidos")
+    .regex(contemLetra, "O nome deve conter pelo menos uma letra"),
 
 
     email: z.string({ 

@@ -34,6 +34,15 @@ describe('Middleware validarLogin (Zod)', () => {
             });
         });
 
+        test('rejeita senha vazia e retorna 400 antes de chamar o controller', () => {
+            req.body = { email: "jwt@teste.com", senha: "" };
+            validarLogin(req, res, next);
+            
+            expect(res.status).toHaveBeenCalledWith(400);
+            expect(res.json).toHaveBeenCalledWith({ erro: "Senha é obrigatória" });
+            expect(next).not.toHaveBeenCalled();
+        });
+
         test('não aplica regras de tamanho ou complexidade na senha durante o login', () => {
             // A senha no login só precisa ser string, não importa o conteúdo
             req.body = { email: "teste@teste.com", senha: "1" };
