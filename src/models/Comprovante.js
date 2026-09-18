@@ -49,6 +49,10 @@ Comprovante.init(
       type: DataTypes.STRING,
       allowNull: false,
     },
+    observacoes: {
+      type: DataTypes.TEXT,
+      allowNull: true,
+    },
     usuarioId: {
       type: DataTypes.UUID,
       allowNull: false,

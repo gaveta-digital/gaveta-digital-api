@@ -44,6 +44,10 @@ router.use('/comprovantes', autenticacao);
  *               imagemUrl:
  *                 type: string
  *                 example: "/interno/comprovante-123.jpg"
+ *               observacoes:
+ *                 type: string
+ *                 nullable: true
+ *                 example: Compra de material de escritório
  *     responses:
  *       201:
  *         description: Comprovante criado
@@ -125,6 +129,9 @@ router.get('/comprovantes', ComprovanteController.listar);
  *                 nullable: true
  *               categoriaId:
  *                 type: string
+ *               observacoes:
+ *                 type: string
+ *                 nullable: true
  *     responses:
  *       200:
  *         description: Comprovante atualizado

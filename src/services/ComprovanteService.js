@@ -6,6 +6,7 @@ const CAMPOS_EDITAVEIS = [
   'data',
   'valor',
   'categoriaId',
+  'observacoes',
 ];
 
 const CAMPOS_CRIACAO = [
@@ -173,8 +174,8 @@ function validarEPrepararCampos(body, opcoes = {}) {
     throw criarErro(
       400,
       criacao
-        ? 'Só é permitido informar estabelecimento, data, valor, categoriaId e imagemUrl.'
-        : 'Só é permitido editar estabelecimento, data, valor e categoriaId.'
+        ? 'Só é permitido informar estabelecimento, data, valor, categoriaId, imagemUrl e observacoes.'
+        : 'Só é permitido editar estabelecimento, data, valor, categoriaId e observacoes.'
     );
   }
 
@@ -196,6 +197,19 @@ function validarEPrepararCampos(body, opcoes = {}) {
       dados.estabelecimento = estabelecimento || null;
     } else {
       dados.estabelecimento = null;
+    }
+  }
+
+  if (Object.prototype.hasOwnProperty.call(body, 'observacoes')) {
+    if (body.observacoes !== null && typeof body.observacoes !== 'string') {
+      throw criarErro(400, 'Observações deve ser uma string ou null.');
+    }
+
+    if (typeof body.observacoes === 'string') {
+      const observacoes = body.observacoes.trim();
+      dados.observacoes = observacoes || null;
+    } else {
+      dados.observacoes = null;
     }
   }
 
