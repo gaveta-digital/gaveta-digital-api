@@ -1,4 +1,5 @@
-const { Comprovante, Categoria } = require('../models');
+const ComprovanteRepository = require('../repositories/ComprovanteRepository');
+const CategoriaRepository = require('../repositories/CategoriaRepository');
 
 const CAMPOS_EDITAVEIS = [
   'estabelecimento',
@@ -20,7 +21,7 @@ function criarErro(statusCode, mensagem) {
 
 
 async function buscarDoUsuario(id, usuarioId) {
-  const comprovante = await Comprovante.findByPk(id);
+  const comprovante = await ComprovanteRepository.findById(id);
 
   if (!comprovante) {
     throw criarErro(404, 'Comprovante não encontrado.');
@@ -43,12 +44,12 @@ const ComprovanteService = {
       criacao: true,
     });
 
-    const categoria = await Categoria.findByPk(dados.categoriaId);
+    const categoria = await CategoriaRepository.findById(dados.categoriaId);
     if (!categoria) {
       throw criarErro(400, 'A categoria informada não existe.');
     }
 
-    const comprovante = await Comprovante.create({
+    const comprovante = await ComprovanteRepository.create({
       ...dados,
       usuarioId,
     });
@@ -68,10 +69,8 @@ const ComprovanteService = {
     }
 
     const limite = Math.min(limiteSolicitado, 100);
-    const comprovantes = await Comprovante.findAll({
-      where: { usuarioId },
-      order: [['createdAt', 'DESC']],
-      limit: limite,
+    const comprovantes = await ComprovanteRepository.findAllByUsuario(usuarioId, {
+      limite,
       offset: (pagina - 1) * limite,
     });
 
@@ -90,7 +89,7 @@ const ComprovanteService = {
     });
 
     if (Object.prototype.hasOwnProperty.call(dados, 'categoriaId')) {
-      const categoria = await Categoria.findByPk(dados.categoriaId);
+      const categoria = await CategoriaRepository.findById(dados.categoriaId);
       if (!categoria) {
         throw criarErro(400, 'A categoria informada não existe.');
       }

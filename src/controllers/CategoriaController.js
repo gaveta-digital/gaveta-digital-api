@@ -1,4 +1,5 @@
-const { Categoria, Comprovante } = require('../models');
+const CategoriaRepository = require('../repositories/CategoriaRepository');
+const ComprovanteRepository = require('../repositories/ComprovanteRepository');
 
 class CategoriaController {
   static async create(req, res, next) {
@@ -10,7 +11,7 @@ class CategoriaController {
         return res.status(400).json({ erro: 'O nome da categoria é obrigatório' });
       }
 
-      const categoria = await Categoria.create({ nome, usuarioId });
+      const categoria = await CategoriaRepository.create({ nome, usuarioId });
       return res.status(201).json(categoria);
     } catch (error) {
       next(error);
@@ -20,9 +21,7 @@ class CategoriaController {
   static async list(req, res, next) {
     try {
       const usuarioId = req.usuarioId;
-      const categorias = await Categoria.findAll({
-        where: { usuarioId },
-      });
+      const categorias = await CategoriaRepository.findAllByUsuario(usuarioId);
       return res.status(200).json(categorias);
     } catch (error) {
       next(error);
@@ -39,9 +38,7 @@ class CategoriaController {
         return res.status(400).json({ erro: 'O nome da categoria é obrigatório para atualização' });
       }
 
-      const categoria = await Categoria.findOne({
-        where: { id, usuarioId },
-      });
+      const categoria = await CategoriaRepository.findByIdAndUsuario(id, usuarioId);
 
       if (!categoria) {
         return res.status(404).json({ erro: 'Categoria não encontrada' });
@@ -63,9 +60,7 @@ class CategoriaController {
       const { id } = req.params;
       const usuarioId = req.usuarioId;
 
-      const categoria = await Categoria.findOne({
-        where: { id, usuarioId },
-      });
+      const categoria = await CategoriaRepository.findByIdAndUsuario(id, usuarioId);
 
       if (!categoria) {
         return res.status(404).json({ erro: 'Categoria não encontrada' });
@@ -75,9 +70,7 @@ class CategoriaController {
         return res.status(400).json({ erro: 'A categoria "Outros" não pode ser excluída' });
       }
 
-      const comprovantesVinculados = await Comprovante.count({
-        where: { categoriaId: id },
-      });
+      const comprovantesVinculados = await ComprovanteRepository.countByCategoria(id);
 
       if (comprovantesVinculados > 0) {
         return res.status(400).json({ erro: 'Não é possível excluir categoria com comprovantes vinculados' });

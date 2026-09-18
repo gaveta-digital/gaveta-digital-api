@@ -1,6 +1,7 @@
 const bcrypt = require('bcryptjs');
-const {sequelize, Usuario, Categoria} = require('../models');
+const { sequelize, Categoria } = require('../models');
 const jwt = require('jsonwebtoken');
+const UsuarioRepository = require('../repositories/UsuarioRepository');
 
 const saltRounds = 10;
 
@@ -8,25 +9,25 @@ const UsuarioService ={
 
     async criarUsuario(nome, email, senha) {
         //1.Verificar se o email existe
-        const usuarioExistente = await Usuario.findOne({ where: { email } });
+        const usuarioExistente = await UsuarioRepository.findByEmail(email);
         if (usuarioExistente) {
             throw new Error('Email já cadastrado');
         }
-    
+
         //2.Gerar hash da senha
         const senhaHash = await bcrypt.hash(senha, saltRounds);
-    
+
         //3. Criar usuário e categorias iniciais dentro de uma Transação
         const novoUsuario = await sequelize.transaction(async (t) => {
             // Cria o usuário vinculando-o a esta transação
-            const user = await Usuario.create({ nome, email, senha: senhaHash }, { transaction: t });
+            const user = await UsuarioRepository.create({ nome, email, senha: senhaHash }, { transaction: t });
 
             // Chama a inicialização das 6 categorias usando a mesma transação
             await Categoria.seedIniciais(user.id, { transaction: t });
 
             return user;
         });
-    
+
         //4. Retornar usuário criado
         const usuarioSemSenha = novoUsuario.toJSON();
         delete usuarioSemSenha.senha;
@@ -35,7 +36,7 @@ const UsuarioService ={
 
     async loginUsuario(email, senha) {
         //1.Verificar se o email existe
-        const usuarioExistente = await Usuario.scope('comSenha').findOne({ where: { email } });
+        const usuarioExistente = await UsuarioRepository.findByEmailComSenha(email);
         if (!usuarioExistente) {
             throw new Error('Usuario não encontrado');
         }
