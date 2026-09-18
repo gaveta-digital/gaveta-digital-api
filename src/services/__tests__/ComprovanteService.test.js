@@ -86,6 +86,62 @@ describe('ComprovanteService', () => {
     });
   });
 
+  test('criar aceita observacoes com trim e normaliza vazio para null', async () => {
+    Categoria.findByPk.mockResolvedValueOnce({ id: 'categoria-1' });
+    Comprovante.create.mockResolvedValueOnce({
+      id: 'comprovante-1',
+      categoriaId: 'categoria-1',
+      imagemUrl: '/interno/comprovante.jpg',
+      usuarioId: 'usuario-1',
+      observacoes: 'Compra de material',
+    });
+
+    await ComprovanteService.criar('usuario-1', {
+      categoriaId: 'categoria-1',
+      imagemUrl: '/interno/comprovante.jpg',
+      observacoes: '  Compra de material  ',
+    });
+
+    expect(Comprovante.create).toHaveBeenCalledWith(
+      expect.objectContaining({ observacoes: 'Compra de material' })
+    );
+  });
+
+  test('criar normaliza observacoes vazia ou só espaços para null', async () => {
+    Categoria.findByPk.mockResolvedValueOnce({ id: 'categoria-1' });
+    Comprovante.create.mockResolvedValueOnce({
+      id: 'comprovante-1',
+      categoriaId: 'categoria-1',
+      imagemUrl: '/interno/comprovante.jpg',
+      usuarioId: 'usuario-1',
+      observacoes: null,
+    });
+
+    await ComprovanteService.criar('usuario-1', {
+      categoriaId: 'categoria-1',
+      imagemUrl: '/interno/comprovante.jpg',
+      observacoes: '   ',
+    });
+
+    expect(Comprovante.create).toHaveBeenCalledWith(
+      expect.objectContaining({ observacoes: null })
+    );
+  });
+
+  test('criar rejeita observacoes que não seja string ou null', async () => {
+    await expect(
+      ComprovanteService.criar('usuario-1', {
+        categoriaId: 'categoria-1',
+        imagemUrl: '/interno/comprovante.jpg',
+        observacoes: 123,
+      })
+    ).rejects.toMatchObject({
+      statusCode: 400,
+      message: 'Observações deve ser uma string ou null.',
+    });
+    expect(Comprovante.create).not.toHaveBeenCalled();
+  });
+
   test.each([
     ['imagem ausente', {
       categoriaId: 'categoria-1',
@@ -112,7 +168,7 @@ describe('ComprovanteService', () => {
       categoriaId: 'categoria-1',
       imagemUrl: '/interno/comprovante.jpg',
       usuarioId: 'outro-usuario',
-    }, 'Só é permitido informar estabelecimento, data, valor, categoriaId e imagemUrl.'],
+    }, 'Só é permitido informar estabelecimento, data, valor, categoriaId, imagemUrl e observacoes.'],
   ])('criar rejeita %s com 400', async (_caso, body, mensagem) => {
     await expect(
       ComprovanteService.criar('usuario-1', body)
@@ -205,6 +261,52 @@ describe('ComprovanteService', () => {
       categoriaId: 'categoria-1',
     });
     expect(resultado.categoriaId).toBe('categoria-1');
+  });
+
+  test('editar atualiza observacoes com trim', async () => {
+    const comprovante = {
+      id: 'comprovante-1',
+      usuarioId: 'usuario-1',
+      observacoes: null,
+      update: jest.fn(async function atualizar(dados) {
+        Object.assign(this, dados);
+      }),
+    };
+    Comprovante.findByPk.mockResolvedValueOnce(comprovante);
+
+    const resultado = await ComprovanteService.editar(
+      'comprovante-1',
+      'usuario-1',
+      { observacoes: '  nova observação  ' }
+    );
+
+    expect(comprovante.update).toHaveBeenCalledWith({
+      observacoes: 'nova observação',
+    });
+    expect(resultado.observacoes).toBe('nova observação');
+  });
+
+  test('editar limpa observacoes enviando null', async () => {
+    const comprovante = {
+      id: 'comprovante-1',
+      usuarioId: 'usuario-1',
+      observacoes: 'antiga',
+      update: jest.fn(async function atualizar(dados) {
+        Object.assign(this, dados);
+      }),
+    };
+    Comprovante.findByPk.mockResolvedValueOnce(comprovante);
+
+    const resultado = await ComprovanteService.editar(
+      'comprovante-1',
+      'usuario-1',
+      { observacoes: null }
+    );
+
+    expect(comprovante.update).toHaveBeenCalledWith({
+      observacoes: null,
+    });
+    expect(resultado.observacoes).toBeNull();
   });
 
   test.each(['editar', 'excluir'])(
