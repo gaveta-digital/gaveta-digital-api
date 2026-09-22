@@ -165,4 +165,35 @@ describe('geminiService', () => {
     expect(partesImagem.inlineData.mimeType).toBe('image/png');
     expect(partesImagem.inlineData.data).toBe(imagemBuffer.toString('base64'));
   });
+
+  test('escapa aspas no nome da categoria ao montar o prompt', async () => {
+    mockGenerateContent.mockResolvedValueOnce(respostaGemini({
+      estabelecimento: null,
+      data: null,
+      valor: null,
+      categoriaId: null,
+    }));
+
+    const categoriasComAspas = [{ id: 'cat-1', nome: 'Material "elétrico"' }];
+
+    await geminiService.analisarComprovante(imagemBuffer, 'image/jpeg', categoriasComAspas);
+
+    const [prompt] = mockGenerateContent.mock.calls[0][0];
+    expect(prompt).toContain('nome: "Material \\"elétrico\\""');
+  });
+
+  test('avisa no prompt quando não há categorias cadastradas', async () => {
+    mockGenerateContent.mockResolvedValueOnce(respostaGemini({
+      estabelecimento: null,
+      data: null,
+      valor: null,
+      categoriaId: null,
+    }));
+
+    const resultado = await geminiService.analisarComprovante(imagemBuffer, 'image/jpeg', []);
+
+    const [prompt] = mockGenerateContent.mock.calls[0][0];
+    expect(prompt).toContain('nenhuma categoria cadastrada');
+    expect(resultado.categoriaId).toBeNull();
+  });
 });

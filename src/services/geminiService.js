@@ -11,9 +11,14 @@ function criarErro(statusCode, mensagem) {
 }
 
 function montarPrompt(categorias) {
-  const listaCategorias = categorias
-    .map((categoria) => `- id: "${categoria.id}", nome: "${categoria.nome}"`)
-    .join('\n');
+  const listaCategorias = categorias.length > 0
+    ? categorias
+        .map((categoria) => {
+          const nomeEscapado = categoria.nome.replace(/"/g, '\\"');
+          return `- id: "${categoria.id}", nome: "${nomeEscapado}"`;
+        })
+        .join('\n')
+    : '(nenhuma categoria cadastrada — retorne null em categoriaId)';
 
   return `Você é um assistente que extrai dados de comprovantes de despesa (recibos, notas fiscais, cupons fiscais) a partir de uma imagem.
 
