@@ -2,7 +2,10 @@ const { GoogleGenerativeAI } = require('@google/generative-ai');
 
 const MENSAGEM_INDISPONIVEL = 'Serviço de leitura indisponível no momento. Tente novamente em instantes.';
 const MENSAGEM_IMAGEM_ILEGIVEL = 'Não foi possível ler o comprovante. Tente novamente com uma foto mais nítida.';
-const MODELO = 'gemini-1.5-flash';
+// Alias mantido pelo Google, que sempre aponta para o modelo "flash" estável
+// mais recente — evita quebrar o serviço quando uma versão fixa (ex:
+// "gemini-1.5-flash") for descontinuada.
+const MODELO = 'gemini-flash-latest';
 
 function criarErro(statusCode, mensagem) {
   const erro = new Error(mensagem);
