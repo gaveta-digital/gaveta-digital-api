@@ -1,6 +1,7 @@
 const { Router } = require('express');
 const ComprovanteController = require('../controllers/ComprovanteController');
 const autenticacao = require('../middlewares/autenticacao');
+const uploadImagem = require('../middlewares/uploadImagem');
 
 const router = Router();
 
@@ -10,7 +11,13 @@ router.use('/comprovantes', autenticacao);
  * @swagger
  * /comprovantes:
  *   post:
- *     summary: Cria novo comprovante
+ *     summary: Cria comprovante a partir de uma imagem (analisada pela IA/Gemini)
+ *     description: >
+ *       O cliente envia a foto do comprovante. A API busca as categorias do
+ *       usuário autenticado, envia a imagem ao Gemini junto com essa lista e
+ *       extrai estabelecimento, data, valor e categoria automaticamente.
+ *       Campos não identificados ficam null; categoria não identificada usa
+ *       "Outros" do usuário.
  *     tags:
  *       - Comprovantes
  *     security:
@@ -18,43 +25,31 @@ router.use('/comprovantes', autenticacao);
  *     requestBody:
  *       required: true
  *       content:
- *         application/json:
+ *         multipart/form-data:
  *           schema:
  *             type: object
  *             required:
- *               - imagemUrl
- *               - categoriaId
+ *               - imagem
  *             properties:
- *               estabelecimento:
+ *               imagem:
  *                 type: string
- *                 nullable: true
- *                 example: Mercado Central
- *               data:
- *                 type: string
- *                 format: date
- *                 nullable: true
- *                 example: "2026-09-15"
- *               valor:
- *                 type: number
- *                 nullable: true
- *                 example: 150.75
- *               categoriaId:
- *                 type: string
- *                 example: "categoria-uuid"
- *               imagemUrl:
- *                 type: string
- *                 example: "/interno/comprovante-123.jpg"
- *               observacoes:
- *                 type: string
- *                 nullable: true
- *                 example: Compra de material de escritório
+ *                 format: binary
+ *                 description: Arquivo JPEG, PNG ou WebP de até 10 MiB
  *     responses:
  *       201:
- *         description: Comprovante criado
+ *         description: Comprovante criado a partir da análise da imagem
  *       400:
- *         description: Dados inválidos
+ *         description: Nenhuma imagem enviada
  *       401:
  *         description: Não autenticado
+ *       413:
+ *         description: Imagem acima de 10 MiB
+ *       415:
+ *         description: Formato de imagem não suportado
+ *       422:
+ *         description: Imagem ilegível — não foi possível interpretar o comprovante
+ *       503:
+ *         description: Serviço de leitura (Gemini) indisponível no momento
  *   get:
  *     summary: Lista comprovantes do usuário (20 por página)
  *     tags:
@@ -73,7 +68,7 @@ router.use('/comprovantes', autenticacao);
  *       401:
  *         description: Não autenticado
  */
-router.post('/comprovantes', ComprovanteController.criar);
+router.post('/comprovantes', uploadImagem, ComprovanteController.criar);
 router.get('/comprovantes', ComprovanteController.listar);
 
 /**

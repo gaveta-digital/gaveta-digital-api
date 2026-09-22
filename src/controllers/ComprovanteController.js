@@ -11,9 +11,9 @@ function tratarErroConhecido(erro, res, next) {
 const ComprovanteController = {
   async criar(req, res, next) {
     try {
-      const comprovante = await ComprovanteService.criar(
+      const comprovante = await ComprovanteService.criarComIA(
         req.usuarioId,
-        req.body
+        req.file
       );
 
       return res.status(201).json({
