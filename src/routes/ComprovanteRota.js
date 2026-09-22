@@ -160,4 +160,39 @@ router.get('/comprovantes/:id', ComprovanteController.detalhar);
 router.put('/comprovantes/:id', ComprovanteController.editar);
 router.delete('/comprovantes/:id', ComprovanteController.excluir);
 
+/**
+ * @swagger
+ * /comprovantes/{id}/imagem:
+ *   get:
+ *     summary: Retorna o arquivo de imagem do comprovante
+ *     description: >
+ *       Rota protegida — exige autenticação e verifica que o comprovante
+ *       pertence ao usuário autenticado antes de retornar o arquivo.
+ *       Não expõe caminhos internos do armazenamento.
+ *     tags:
+ *       - Comprovantes
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Arquivo de imagem (JPEG, PNG ou WebP)
+ *         content:
+ *           image/jpeg: {}
+ *           image/png: {}
+ *           image/webp: {}
+ *       401:
+ *         description: Não autenticado
+ *       403:
+ *         description: Comprovante pertence a outro usuário
+ *       404:
+ *         description: Comprovante ou imagem não encontrados
+ */
+router.get('/comprovantes/:id/imagem', ComprovanteController.imagem);
+
 module.exports = router;

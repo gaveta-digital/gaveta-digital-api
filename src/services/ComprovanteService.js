@@ -120,6 +120,17 @@ const ComprovanteService = {
     return serializarComprovante(comprovante);
   },
 
+  async obterImagem(id, usuarioId) {
+    const comprovante = await buscarDoUsuario(id, usuarioId);
+    const arquivo = await ArmazenamentoService.obterArquivo(comprovante.imagemUrl);
+
+    if (!arquivo) {
+      throw criarErro(404, 'Imagem do comprovante não encontrada.');
+    }
+
+    return arquivo;
+  },
+
   async editar(id, usuarioId, body) {
     const comprovante = await buscarDoUsuario(id, usuarioId);
     const dados = validarEPrepararCampos(body, {

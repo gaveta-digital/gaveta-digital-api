@@ -57,6 +57,20 @@ const ComprovanteController = {
     }
   },
 
+  async imagem(req, res, next) {
+    try {
+      const { caminhoCompleto, mimeType } = await ComprovanteService.obterImagem(
+        req.params.id,
+        req.usuarioId
+      );
+
+      res.type(mimeType);
+      return res.sendFile(caminhoCompleto);
+    } catch (erro) {
+      return tratarErroConhecido(erro, res, next);
+    }
+  },
+
   async editar(req, res, next) {
     try {
       const comprovante = await ComprovanteService.editar(

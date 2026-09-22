@@ -200,6 +200,68 @@ describe('ComprovanteService', () => {
     expect(Comprovante.create).not.toHaveBeenCalled();
   });
 
+  describe('obterImagem', () => {
+    test('retorna caminho e mimetype quando comprovante e arquivo existem', async () => {
+      Comprovante.findByPk.mockResolvedValueOnce({
+        id: 'comprovante-1',
+        usuarioId: 'usuario-1',
+        imagemUrl: 'uploads/foto.jpg',
+      });
+      ArmazenamentoService.obterArquivo.mockResolvedValueOnce({
+        caminhoCompleto: '/abs/path/uploads/foto.jpg',
+        mimeType: 'image/jpeg',
+      });
+
+      const resultado = await ComprovanteService.obterImagem('comprovante-1', 'usuario-1');
+
+      expect(ArmazenamentoService.obterArquivo).toHaveBeenCalledWith('uploads/foto.jpg');
+      expect(resultado).toEqual({
+        caminhoCompleto: '/abs/path/uploads/foto.jpg',
+        mimeType: 'image/jpeg',
+      });
+    });
+
+    test('rejeita com 404 se o comprovante não existir', async () => {
+      Comprovante.findByPk.mockResolvedValueOnce(null);
+
+      await expect(
+        ComprovanteService.obterImagem('inexistente', 'usuario-1')
+      ).rejects.toMatchObject({ statusCode: 404 });
+
+      expect(ArmazenamentoService.obterArquivo).not.toHaveBeenCalled();
+    });
+
+    test('rejeita com 403 se o comprovante pertencer a outro usuário', async () => {
+      Comprovante.findByPk.mockResolvedValueOnce({
+        id: 'comprovante-1',
+        usuarioId: 'outro-usuario',
+        imagemUrl: 'uploads/foto.jpg',
+      });
+
+      await expect(
+        ComprovanteService.obterImagem('comprovante-1', 'usuario-1')
+      ).rejects.toMatchObject({ statusCode: 403 });
+
+      expect(ArmazenamentoService.obterArquivo).not.toHaveBeenCalled();
+    });
+
+    test('rejeita com 404 se o arquivo físico não existir mais', async () => {
+      Comprovante.findByPk.mockResolvedValueOnce({
+        id: 'comprovante-1',
+        usuarioId: 'usuario-1',
+        imagemUrl: 'uploads/removido.jpg',
+      });
+      ArmazenamentoService.obterArquivo.mockResolvedValueOnce(null);
+
+      await expect(
+        ComprovanteService.obterImagem('comprovante-1', 'usuario-1')
+      ).rejects.toMatchObject({
+        statusCode: 404,
+        message: 'Imagem do comprovante não encontrada.',
+      });
+    });
+  });
+
   describe('criarComIA', () => {
     const categoriasDoUsuario = [
       { id: 'cat-material', nome: 'Material' },
