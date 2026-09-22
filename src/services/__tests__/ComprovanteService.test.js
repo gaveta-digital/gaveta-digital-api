@@ -6,10 +6,16 @@ jest.mock('../../models', () => ({
   },
   Categoria: {
     findByPk: jest.fn(),
+    findAll: jest.fn(),
   },
 }));
 
+jest.mock('../geminiService');
+jest.mock('../ArmazenamentoService');
+
 const { Comprovante, Categoria } = require('../../models');
+const geminiService = require('../geminiService');
+const ArmazenamentoService = require('../ArmazenamentoService');
 const ComprovanteService = require('../ComprovanteService');
 
 describe('ComprovanteService', () => {
@@ -192,6 +198,205 @@ describe('ComprovanteService', () => {
       message: 'A categoria informada não existe.',
     });
     expect(Comprovante.create).not.toHaveBeenCalled();
+  });
+
+  describe('criarComIA', () => {
+    const categoriasDoUsuario = [
+      { id: 'cat-material', nome: 'Material' },
+      { id: 'cat-outros', nome: 'Outros' },
+    ];
+    const arquivo = {
+      buffer: Buffer.from('imagem-fake'),
+      mimetype: 'image/jpeg',
+    };
+
+    test('busca as categorias do usuário e envia apenas id/nome ao Gemini', async () => {
+      Categoria.findAll.mockResolvedValueOnce(categoriasDoUsuario);
+      geminiService.analisarComprovante.mockResolvedValueOnce({
+        estabelecimento: 'Mercado',
+        data: '2026-09-14',
+        valor: 10,
+        categoriaId: 'cat-material',
+      });
+      ArmazenamentoService.salvar.mockResolvedValueOnce('uploads/arquivo.jpg');
+      Comprovante.create.mockResolvedValueOnce({
+        id: 'comprovante-1',
+        estabelecimento: 'Mercado',
+        data: '2026-09-14',
+        valor: 10,
+        categoriaId: 'cat-material',
+        imagemUrl: 'uploads/arquivo.jpg',
+        usuarioId: 'usuario-1',
+      });
+
+      await ComprovanteService.criarComIA('usuario-1', arquivo);
+
+      expect(Categoria.findAll).toHaveBeenCalledWith({ where: { usuarioId: 'usuario-1' } });
+      expect(geminiService.analisarComprovante).toHaveBeenCalledWith(
+        arquivo.buffer,
+        arquivo.mimetype,
+        [
+          { id: 'cat-material', nome: 'Material' },
+          { id: 'cat-outros', nome: 'Outros' },
+        ]
+      );
+    });
+
+    test('salva a imagem e cria o comprovante com os dados extraídos pela IA', async () => {
+      Categoria.findAll.mockResolvedValueOnce(categoriasDoUsuario);
+      geminiService.analisarComprovante.mockResolvedValueOnce({
+        estabelecimento: 'Mercado Central',
+        data: '2026-09-14',
+        valor: 42.5,
+        categoriaId: 'cat-material',
+      });
+      ArmazenamentoService.salvar.mockResolvedValueOnce('uploads/comprovante-1.jpg');
+      Comprovante.create.mockResolvedValueOnce({
+        id: 'comprovante-1',
+        estabelecimento: 'Mercado Central',
+        data: '2026-09-14',
+        valor: 42.5,
+        categoriaId: 'cat-material',
+        imagemUrl: 'uploads/comprovante-1.jpg',
+        usuarioId: 'usuario-1',
+      });
+
+      const resultado = await ComprovanteService.criarComIA('usuario-1', arquivo);
+
+      expect(ArmazenamentoService.salvar).toHaveBeenCalledWith(
+        arquivo.buffer,
+        arquivo.mimetype
+      );
+      expect(Comprovante.create).toHaveBeenCalledWith({
+        estabelecimento: 'Mercado Central',
+        data: '2026-09-14',
+        valor: 42.5,
+        categoriaId: 'cat-material',
+        imagemUrl: 'uploads/comprovante-1.jpg',
+        usuarioId: 'usuario-1',
+      });
+      expect(resultado.id).toBe('comprovante-1');
+    });
+
+    test('usa a categoria "Outros" quando a IA retorna categoriaId null', async () => {
+      Categoria.findAll.mockResolvedValueOnce(categoriasDoUsuario);
+      geminiService.analisarComprovante.mockResolvedValueOnce({
+        estabelecimento: null,
+        data: null,
+        valor: null,
+        categoriaId: null,
+      });
+      ArmazenamentoService.salvar.mockResolvedValueOnce('uploads/x.jpg');
+      Comprovante.create.mockResolvedValueOnce({ id: 'comprovante-1' });
+
+      await ComprovanteService.criarComIA('usuario-1', arquivo);
+
+      expect(Comprovante.create).toHaveBeenCalledWith(
+        expect.objectContaining({ categoriaId: 'cat-outros' })
+      );
+    });
+
+    test('usa "Outros" quando a IA retorna um categoriaId que não pertence ao usuário', async () => {
+      Categoria.findAll.mockResolvedValueOnce(categoriasDoUsuario);
+      geminiService.analisarComprovante.mockResolvedValueOnce({
+        estabelecimento: null,
+        data: null,
+        valor: null,
+        categoriaId: 'categoria-de-outro-usuario',
+      });
+      ArmazenamentoService.salvar.mockResolvedValueOnce('uploads/x.jpg');
+      Comprovante.create.mockResolvedValueOnce({ id: 'comprovante-1' });
+
+      await ComprovanteService.criarComIA('usuario-1', arquivo);
+
+      expect(Comprovante.create).toHaveBeenCalledWith(
+        expect.objectContaining({ categoriaId: 'cat-outros' })
+      );
+    });
+
+    test('normaliza data inválida retornada pela IA para null, sem bloquear a criação', async () => {
+      Categoria.findAll.mockResolvedValueOnce(categoriasDoUsuario);
+      geminiService.analisarComprovante.mockResolvedValueOnce({
+        estabelecimento: 'Mercado',
+        data: '2999-01-01',
+        valor: 10,
+        categoriaId: 'cat-material',
+      });
+      ArmazenamentoService.salvar.mockResolvedValueOnce('uploads/x.jpg');
+      Comprovante.create.mockResolvedValueOnce({ id: 'comprovante-1' });
+
+      await ComprovanteService.criarComIA('usuario-1', arquivo);
+
+      expect(Comprovante.create).toHaveBeenCalledWith(
+        expect.objectContaining({ data: null, estabelecimento: 'Mercado' })
+      );
+    });
+
+    test('normaliza valor inválido retornado pela IA para null, sem bloquear a criação', async () => {
+      Categoria.findAll.mockResolvedValueOnce(categoriasDoUsuario);
+      geminiService.analisarComprovante.mockResolvedValueOnce({
+        estabelecimento: null,
+        data: null,
+        valor: -5,
+        categoriaId: 'cat-material',
+      });
+      ArmazenamentoService.salvar.mockResolvedValueOnce('uploads/x.jpg');
+      Comprovante.create.mockResolvedValueOnce({ id: 'comprovante-1' });
+
+      await ComprovanteService.criarComIA('usuario-1', arquivo);
+
+      expect(Comprovante.create).toHaveBeenCalledWith(
+        expect.objectContaining({ valor: null })
+      );
+    });
+
+    test('propaga o erro 422 de imagem ilegível sem salvar imagem nem comprovante', async () => {
+      Categoria.findAll.mockResolvedValueOnce(categoriasDoUsuario);
+      const erroIlegivel = Object.assign(new Error('Não foi possível ler o comprovante.'), {
+        statusCode: 422,
+      });
+      geminiService.analisarComprovante.mockRejectedValueOnce(erroIlegivel);
+
+      await expect(
+        ComprovanteService.criarComIA('usuario-1', arquivo)
+      ).rejects.toMatchObject({ statusCode: 422 });
+
+      expect(ArmazenamentoService.salvar).not.toHaveBeenCalled();
+      expect(Comprovante.create).not.toHaveBeenCalled();
+    });
+
+    test('propaga o erro 503 de falha do Gemini sem salvar imagem nem comprovante', async () => {
+      Categoria.findAll.mockResolvedValueOnce(categoriasDoUsuario);
+      const erroIndisponivel = Object.assign(new Error('Serviço indisponível.'), {
+        statusCode: 503,
+      });
+      geminiService.analisarComprovante.mockRejectedValueOnce(erroIndisponivel);
+
+      await expect(
+        ComprovanteService.criarComIA('usuario-1', arquivo)
+      ).rejects.toMatchObject({ statusCode: 503 });
+
+      expect(ArmazenamentoService.salvar).not.toHaveBeenCalled();
+      expect(Comprovante.create).not.toHaveBeenCalled();
+    });
+
+    test('remove a imagem salva se a criação do comprovante falhar no banco', async () => {
+      Categoria.findAll.mockResolvedValueOnce(categoriasDoUsuario);
+      geminiService.analisarComprovante.mockResolvedValueOnce({
+        estabelecimento: null,
+        data: null,
+        valor: null,
+        categoriaId: 'cat-material',
+      });
+      ArmazenamentoService.salvar.mockResolvedValueOnce('uploads/orfa.jpg');
+      Comprovante.create.mockRejectedValueOnce(new Error('falha no banco'));
+
+      await expect(
+        ComprovanteService.criarComIA('usuario-1', arquivo)
+      ).rejects.toThrow('falha no banco');
+
+      expect(ArmazenamentoService.remover).toHaveBeenCalledWith('uploads/orfa.jpg');
+    });
   });
 
   test('listar consulta somente comprovantes do usuário autenticado', async () => {

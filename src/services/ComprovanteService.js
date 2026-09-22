@@ -1,5 +1,9 @@
 const ComprovanteRepository = require('../repositories/ComprovanteRepository');
 const CategoriaRepository = require('../repositories/CategoriaRepository');
+const ArmazenamentoService = require('./ArmazenamentoService');
+const geminiService = require('./geminiService');
+
+const NOME_CATEGORIA_PADRAO = 'Outros';
 
 const CAMPOS_EDITAVEIS = [
   'estabelecimento',
@@ -56,6 +60,39 @@ const ComprovanteService = {
     });
 
     return serializarComprovante(comprovante);
+  },
+
+  async criarComIA(usuarioId, arquivo) {
+    const categorias = await CategoriaRepository.findAllByUsuario(usuarioId);
+
+    const analise = await geminiService.analisarComprovante(
+      arquivo.buffer,
+      arquivo.mimetype,
+      categorias.map((categoria) => ({ id: categoria.id, nome: categoria.nome }))
+    );
+
+    const categoriaId = resolverCategoria(categorias, analise.categoriaId);
+    const camposNormalizados = normalizarCamposDaIA(analise);
+
+    const imagemUrl = await ArmazenamentoService.salvar(
+      arquivo.buffer,
+      arquivo.mimetype
+    );
+
+    try {
+      const comprovante = await ComprovanteRepository.create({
+        ...camposNormalizados,
+        categoriaId,
+        imagemUrl,
+        usuarioId,
+      });
+
+      return serializarComprovante(comprovante);
+    } catch (erro) {
+      // A imagem não pode ficar órfã se o comprovante não for criado.
+      await ArmazenamentoService.remover(imagemUrl);
+      throw erro;
+    }
   },
 
   async listar(usuarioId, query = {}) {
@@ -140,6 +177,45 @@ function dataEhValida(data) {
     && dataUtc.getUTCDate() === dia;
 
   return existeNoCalendario && data <= dataAtualEmFortaleza();
+}
+
+function resolverCategoria(categorias, categoriaIdSugerido) {
+  const categoriaValida = categorias.find(
+    (categoria) => categoria.id === categoriaIdSugerido
+  );
+
+  if (categoriaValida) {
+    return categoriaValida.id;
+  }
+
+  const categoriaPadrao = categorias.find(
+    (categoria) => categoria.nome === NOME_CATEGORIA_PADRAO
+  );
+
+  if (!categoriaPadrao) {
+    throw criarErro(
+      500,
+      'Categoria padrão "Outros" não encontrada para o usuário.'
+    );
+  }
+
+  return categoriaPadrao.id;
+}
+
+function normalizarCamposDaIA(analise) {
+  // Campos inválidos extraídos pela IA nunca bloqueiam a criação: viram null
+  // e preservam os demais dados válidos (REGRAS-DE-NEGOCIO.md, seção 4).
+  const estabelecimento = typeof analise.estabelecimento === 'string'
+    ? analise.estabelecimento.trim()
+    : null;
+
+  return {
+    estabelecimento: estabelecimento && estabelecimento.length <= 150
+      ? estabelecimento
+      : null,
+    data: dataEhValida(analise.data) ? analise.data : null,
+    valor: valorEhValido(analise.valor) ? analise.valor : null,
+  };
 }
 
 function valorEhValido(valor) {
