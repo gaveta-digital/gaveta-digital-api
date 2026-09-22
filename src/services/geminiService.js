@@ -10,6 +10,16 @@ function criarErro(statusCode, mensagem) {
   return erro;
 }
 
+function sanitizarParaLog(texto) {
+  const chave = process.env.GEMINI_API_KEY;
+  if (!chave || typeof texto !== 'string') {
+    return texto;
+  }
+  // A chave nunca pode aparecer em log de erro, mesmo se o SDK a incluir
+  // por acidente na mensagem de erro.
+  return texto.split(chave).join('***');
+}
+
 function montarPrompt(categorias) {
   const listaCategorias = categorias.length > 0
     ? categorias
@@ -56,6 +66,7 @@ function extrairJson(texto) {
 const geminiService = {
   async analisarComprovante(imagemBuffer, mimeType, categorias) {
     if (!process.env.GEMINI_API_KEY) {
+      console.error('[geminiService] GEMINI_API_KEY não configurada no processo.');
       throw criarErro(503, MENSAGEM_INDISPONIVEL);
     }
 
@@ -78,6 +89,7 @@ const geminiService = {
     } catch (erroOriginal) {
       // Erro técnico (timeout, indisponibilidade, limite excedido, etc.) nunca é
       // repassado ao cliente — a chave e detalhes internos não podem vazar.
+      console.error('[geminiService] Falha ao chamar o Gemini:', sanitizarParaLog(erroOriginal.message));
       throw criarErro(503, MENSAGEM_INDISPONIVEL);
     }
 
@@ -89,6 +101,7 @@ const geminiService = {
     }
 
     if (!dados || typeof dados !== 'object' || Array.isArray(dados)) {
+      console.error('[geminiService] Resposta do Gemini não é um JSON válido:', respostaTexto);
       throw criarErro(503, MENSAGEM_INDISPONIVEL);
     }
 

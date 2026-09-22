@@ -112,6 +112,22 @@ describe('geminiService', () => {
     });
   });
 
+  test('nunca loga a chave da API no console, mesmo se o SDK a incluir no erro', async () => {
+    const espiaoConsole = jest.spyOn(console, 'error').mockImplementation(() => {});
+    mockGenerateContent.mockRejectedValueOnce(
+      new Error('Unauthorized: chave-de-teste inválida')
+    );
+
+    await expect(
+      geminiService.analisarComprovante(imagemBuffer, 'image/jpeg', categorias)
+    ).rejects.toMatchObject({ statusCode: 503 });
+
+    const logsChamados = espiaoConsole.mock.calls.flat().join(' ');
+    expect(logsChamados).not.toContain('chave-de-teste');
+
+    espiaoConsole.mockRestore();
+  });
+
   test('resposta que não pode ser interpretada como JSON gera erro 503', async () => {
     mockGenerateContent.mockResolvedValueOnce({
       response: { text: () => 'isto não é um json válido' },
