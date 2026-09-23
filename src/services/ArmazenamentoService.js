@@ -2,7 +2,11 @@ const fs = require('fs/promises');
 const path = require('path');
 const { randomUUID } = require('crypto');
 
-const DIRETORIO_DADOS = path.resolve(__dirname, '../../data');
+// DATA_DIR permite isolar o armazenamento em testes de integração,
+// sem afetar a pasta de dados real usada em desenvolvimento/produção.
+const DIRETORIO_DADOS = process.env.DATA_DIR
+  ? path.resolve(process.env.DATA_DIR)
+  : path.resolve(__dirname, '../../data');
 const DIRETORIO_UPLOADS = path.join(DIRETORIO_DADOS, 'uploads');
 
 const EXTENSOES_POR_MIME = {
@@ -60,7 +64,7 @@ const ArmazenamentoService = {
       return;
     }
 
-    const caminhoCompleto = path.resolve(__dirname, '../../data', referencia);
+    const caminhoCompleto = path.resolve(DIRETORIO_DADOS, referencia);
 
     try {
       await fs.unlink(caminhoCompleto);
