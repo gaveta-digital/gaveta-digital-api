@@ -6,7 +6,12 @@ const MENSAGEM_IMAGEM_ILEGIVEL = 'Não foi possível ler o comprovante. Tente no
 // "flash" estável mais recente — evita quebrar o serviço quando uma versão fixa
 // (ex: "gemini-1.5-flash") for descontinuada. Os demais são usados quando o
 // anterior está sobrecarregado (503/429): cada modelo tem capacidade própria.
-const MODELOS = ['gemini-flash-latest', 'gemini-3.5-flash'];
+const MODELOS = [
+  'gemini-flash-latest',
+  'gemini-3.5-flash',
+  'gemini-3.6-flash',
+  'gemini-3.1-flash-lite',
+];
 
 function criarErro(statusCode, mensagem) {
   const erro = new Error(mensagem);
@@ -67,8 +72,8 @@ function extrairJson(texto) {
   return correspondencia ? correspondencia[0] : texto;
 }
 
-// Esperas entre tentativas: 1 chamada inicial + 2 novas tentativas no máximo.
-const ESPERAS_RETRY_MS = [1000, 3000];
+// Uma tentativa por modelo da lista (1 chamada inicial + 3 novas tentativas).
+const ESPERAS_RETRY_MS = [500, 1000, 2000];
 
 function ehErroTransitorio(erro) {
   // 503 (modelo sobrecarregado) e 429 (limite de requisições) costumam passar sozinhos.
@@ -80,8 +85,8 @@ function ehErroTransitorio(erro) {
 
 async function gerarConteudoComRetry(genAI, conteudo) {
   for (let tentativa = 0; ; tentativa += 1) {
+    const modelo = MODELOS[tentativa % MODELOS.length];
     try {
-      const modelo = MODELOS[tentativa % MODELOS.length];
       return await genAI.getGenerativeModel({ model: modelo }).generateContent(conteudo);
     } catch (erro) {
       const espera = ESPERAS_RETRY_MS[tentativa];
@@ -89,7 +94,7 @@ async function gerarConteudoComRetry(genAI, conteudo) {
         throw erro;
       }
       console.error(
-        `[geminiService] Gemini indisponível temporariamente (tentativa ${tentativa + 1}); nova tentativa em ${espera}ms.`
+        `[geminiService] Gemini indisponível temporariamente (${modelo}, tentativa ${tentativa + 1}); nova tentativa em ${espera}ms.`
       );
       await new Promise((resolver) => setTimeout(resolver, espera));
     }

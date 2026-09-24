@@ -272,7 +272,7 @@ describe('geminiService', () => {
       expect(mockGenerateContent).toHaveBeenCalledTimes(2);
     });
 
-    test('desiste após 3 tentativas no total e devolve o erro 503 tratado', async () => {
+    test('desiste após 4 tentativas no total (uma por modelo) e devolve o erro 503 tratado', async () => {
       mockGenerateContent.mockRejectedValue(erroSobrecarga());
 
       await expect(
@@ -282,12 +282,14 @@ describe('geminiService', () => {
         message: 'Serviço de leitura indisponível no momento. Tente novamente em instantes.',
       });
 
-      expect(mockGenerateContent).toHaveBeenCalledTimes(3);
+      expect(mockGenerateContent).toHaveBeenCalledTimes(4);
       mockGenerateContent.mockReset();
     });
 
     test('alterna para o modelo alternativo quando o principal está sobrecarregado', async () => {
       mockGenerateContent
+        .mockRejectedValueOnce(erroSobrecarga())
+        .mockRejectedValueOnce(erroSobrecarga())
         .mockRejectedValueOnce(erroSobrecarga())
         .mockResolvedValueOnce(respostaVazia);
 
@@ -295,11 +297,17 @@ describe('geminiService', () => {
 
       const { getGenerativeModel } = GoogleGenerativeAI.mock.results[0].value;
       const modelosUsados = getGenerativeModel.mock.calls.map(([opcoes]) => opcoes.model);
-      expect(modelosUsados).toEqual(['gemini-flash-latest', 'gemini-3.5-flash']);
+      expect(modelosUsados).toEqual([
+        'gemini-flash-latest',
+        'gemini-3.5-flash',
+        'gemini-3.6-flash',
+        'gemini-3.1-flash-lite',
+      ]);
     });
 
-    test('espera entre as tentativas (1s e depois 3s)', async () => {
+    test('espera entre as tentativas (0,5s, 1s e 2s)', async () => {
       mockGenerateContent
+        .mockRejectedValueOnce(erroSobrecarga())
         .mockRejectedValueOnce(erroSobrecarga())
         .mockRejectedValueOnce(erroSobrecarga())
         .mockResolvedValueOnce(respostaVazia);
@@ -307,7 +315,7 @@ describe('geminiService', () => {
       await geminiService.analisarComprovante(imagemBuffer, 'image/jpeg', categorias);
 
       const esperas = espiaoTimeout.mock.calls.map(([, ms]) => ms);
-      expect(esperas).toEqual([1000, 3000]);
+      expect(esperas).toEqual([500, 1000, 2000]);
     });
 
     test('não tenta de novo em erros permanentes (ex: modelo inexistente, 404)', async () => {
