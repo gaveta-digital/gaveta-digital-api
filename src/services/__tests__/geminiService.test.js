@@ -228,7 +228,7 @@ describe('geminiService', () => {
     let espiaoConsole;
 
     beforeEach(() => {
-      // Executa a espera na hora, sem atrasar os testes.
+      // faz a espera do retry acontecer na hora
       espiaoTimeout = jest.spyOn(global, 'setTimeout').mockImplementation((fn) => {
         fn();
         return 0;

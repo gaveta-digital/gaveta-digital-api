@@ -2,8 +2,7 @@ const fs = require('fs/promises');
 const path = require('path');
 const { randomUUID } = require('crypto');
 
-// DATA_DIR permite isolar o armazenamento em testes de integração,
-// sem afetar a pasta de dados real usada em desenvolvimento/produção.
+// DATA_DIR só muda a pasta nos testes de integração
 const DIRETORIO_DADOS = process.env.DATA_DIR
   ? path.resolve(process.env.DATA_DIR)
   : path.resolve(__dirname, '../../data');
@@ -22,6 +21,7 @@ const MIME_POR_EXTENSAO = {
 };
 
 const ArmazenamentoService = {
+  // salva a imagem no disco com nome aleatório
   async salvar(buffer, mimeType) {
     await fs.mkdir(DIRETORIO_UPLOADS, { recursive: true });
 
@@ -34,6 +34,7 @@ const ArmazenamentoService = {
     return `uploads/${nomeArquivo}`;
   },
 
+  // devolve o caminho e o tipo da imagem se ela existir
   async obterArquivo(referencia) {
     if (!referencia) {
       return null;
@@ -41,8 +42,7 @@ const ArmazenamentoService = {
 
     const caminhoCompleto = path.resolve(DIRETORIO_DADOS, referencia);
 
-    // Nunca deixa a referência escapar do diretório de dados
-    // (defesa contra path traversal via um imagemUrl malformado).
+    // não deixa sair da pasta de dados (path traversal)
     if (!caminhoCompleto.startsWith(DIRETORIO_DADOS + path.sep)) {
       return null;
     }
@@ -59,6 +59,7 @@ const ArmazenamentoService = {
     return { caminhoCompleto, mimeType };
   },
 
+  // apaga a imagem do disco
   async remover(referencia) {
     if (!referencia) {
       return;

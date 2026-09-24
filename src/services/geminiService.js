@@ -2,12 +2,7 @@ const { GoogleGenerativeAI } = require('@google/generative-ai');
 
 const MENSAGEM_INDISPONIVEL = 'Serviço de leitura indisponível no momento. Tente novamente em instantes.';
 const MENSAGEM_IMAGEM_ILEGIVEL = 'Não foi possível ler o comprovante. Tente novamente com uma foto mais nítida.';
-// Modelos tentados em ordem: cada tentativa (retry) usa o próximo da lista, pois
-// a capacidade do Google varia por modelo (503/429 = sobrecarga temporária).
-// "gemini-3.5-flash" vai primeiro por ter sido o mais disponível nos testes.
-// "gemini-flash-latest" é um alias mantido pelo Google que sempre aponta para o
-// flash estável mais recente, o que evita quebrar quando uma versão fixa for
-// descontinuada (como ocorreu com "gemini-1.5-flash").
+// modelos do gemini, se um falhar tenta o próximo da lista
 const MODELOS = [
   'gemini-3.5-flash',
   'gemini-flash-latest',
@@ -26,11 +21,11 @@ function sanitizarParaLog(texto) {
   if (!chave || typeof texto !== 'string') {
     return texto;
   }
-  // A chave nunca pode aparecer em log de erro, mesmo se o SDK a incluir
-  // por acidente na mensagem de erro.
+  // tira a chave do texto pra ela nunca aparecer no log
   return texto.split(chave).join('***');
 }
 
+// monta o texto que vai pra ia, com a lista de categorias do usuário
 function montarPrompt(categorias) {
   const listaCategorias = categorias.length > 0
     ? categorias
@@ -74,27 +69,26 @@ function extrairJson(texto) {
   return correspondencia ? correspondencia[0] : texto;
 }
 
-// Uma tentativa por modelo da lista (1 chamada inicial + 3 novas tentativas).
+// espera entre as tentativas (ms)
 const ESPERAS_RETRY_MS = [500, 1000, 2000];
 
-// Tempo máximo de cada tentativa: um modelo sobrecarregado pode ficar lento em
-// vez de falhar, e sem limite o cliente esperaria quase um minuto.
+// tempo máximo de cada tentativa (ms)
 const TIMEOUT_TENTATIVA_MS = 15000;
 
 function ehTimeout(erro) {
-  // O SDK aborta a requisição ao estourar o timeout: "Request aborted when fetching ...".
+  // o sdk aborta a requisição quando estoura o tempo
   return /Request aborted/i.test((erro && erro.message) || '');
 }
 
 function ehErroTransitorio(erro) {
-  // 503 (modelo sobrecarregado), 429 (limite de requisições) e timeout costumam
-  // passar sozinhos ou em outro modelo.
+  // 503 e 429 = google sobrecarregado, vale tentar de novo
   if (erro && (erro.status === 503 || erro.status === 429)) {
     return true;
   }
   return ehTimeout(erro) || /\[(503|429)\b/.test((erro && erro.message) || '');
 }
 
+// faz a chamada no gemini, se der 503, 429 ou timeout tenta o próximo modelo
 async function gerarConteudoComRetry(genAI, conteudo) {
   for (let tentativa = 0; ; tentativa += 1) {
     const modelo = MODELOS[tentativa % MODELOS.length];
@@ -110,7 +104,7 @@ async function gerarConteudoComRetry(genAI, conteudo) {
         throw erro;
       }
       if (ehTimeout(erro)) {
-        // Já esperamos o tempo todo da tentativa: vai direto para o próximo modelo.
+        // estourou o tempo, passa pro próximo modelo sem esperar
         console.error(
           `[geminiService] ${modelo} demorou mais de ${TIMEOUT_TENTATIVA_MS}ms (tentativa ${tentativa + 1}); tentando o próximo modelo.`
         );
@@ -125,7 +119,9 @@ async function gerarConteudoComRetry(genAI, conteudo) {
 }
 
 const geminiService = {
+  // aqui entra o gemini: manda a imagem + categorias e recebe os dados do comprovante
   async analisarComprovante(imagemBuffer, mimeType, categorias) {
+    // sem a chave não dá pra chamar o gemini
     if (!process.env.GEMINI_API_KEY) {
       console.error('[geminiService] GEMINI_API_KEY não configurada no processo.');
       throw criarErro(503, MENSAGEM_INDISPONIVEL);
@@ -133,6 +129,7 @@ const geminiService = {
 
     let respostaTexto;
     try {
+      // cria o cliente do gemini com a chave do .env
       const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
       const resultado = await gerarConteudoComRetry(genAI, [
@@ -147,12 +144,12 @@ const geminiService = {
 
       respostaTexto = resultado.response.text();
     } catch (erroOriginal) {
-      // Erro técnico (timeout, indisponibilidade, limite excedido, etc.) nunca é
-      // repassado ao cliente — a chave e detalhes internos não podem vazar.
+      // o erro real só vai pro log, o cliente recebe uma mensagem genérica
       console.error('[geminiService] Falha ao chamar o Gemini:', sanitizarParaLog(erroOriginal.message));
       throw criarErro(503, MENSAGEM_INDISPONIVEL);
     }
 
+    // transforma o texto da resposta em objeto
     let dados;
     try {
       dados = JSON.parse(extrairJson(respostaTexto));
@@ -160,15 +157,18 @@ const geminiService = {
       dados = null;
     }
 
+    // resposta que não é json conta como falha do gemini
     if (!dados || typeof dados !== 'object' || Array.isArray(dados)) {
       console.error('[geminiService] Resposta do Gemini não é um JSON válido:', respostaTexto);
       throw criarErro(503, MENSAGEM_INDISPONIVEL);
     }
 
+    // a ia avisou que não conseguiu ler a imagem
     if (dados.erro) {
       throw criarErro(422, MENSAGEM_IMAGEM_ILEGIVEL);
     }
 
+    // o que a ia não achou fica null
     return {
       estabelecimento: dados.estabelecimento ?? null,
       data: dados.data ?? null,

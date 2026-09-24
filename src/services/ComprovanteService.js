@@ -62,18 +62,23 @@ const ComprovanteService = {
     return serializarComprovante(comprovante);
   },
 
+  // cria o comprovante a partir da foto: o gemini lê a imagem e devolve os dados
   async criarComIA(usuarioId, arquivo) {
+    // pega as categorias do usuário pra ia escolher uma
     const categorias = await CategoriaRepository.findAllByUsuario(usuarioId);
 
+    // manda a imagem pro gemini (se ilegível ou fora do ar, o erro para aqui)
     const analise = await geminiService.analisarComprovante(
       arquivo.buffer,
       arquivo.mimetype,
       categorias.map((categoria) => ({ id: categoria.id, nome: categoria.nome }))
     );
 
+    // confere a categoria da ia, se inválida usa "Outros"
     const categoriaId = resolverCategoria(categorias, analise.categoriaId);
     const camposNormalizados = normalizarCamposDaIA(analise);
 
+    // salva a imagem no disco e depois o comprovante no banco
     const imagemUrl = await ArmazenamentoService.salvar(
       arquivo.buffer,
       arquivo.mimetype
@@ -89,7 +94,7 @@ const ComprovanteService = {
 
       return serializarComprovante(comprovante);
     } catch (erro) {
-      // A imagem não pode ficar órfã se o comprovante não for criado.
+      // se falhar ao salvar no banco, apaga a imagem pra não ficar solta
       await ArmazenamentoService.remover(imagemUrl);
       throw erro;
     }
@@ -159,7 +164,7 @@ function serializarComprovante(comprovante) {
     ? comprovante.toJSON()
     : { ...comprovante };
 
-  // A referência interna do armazenamento não deve ser exposta ao cliente.
+  // não mostra o caminho interno da imagem pro cliente
   delete dados.imagemUrl;
   return dados;
 }
@@ -190,6 +195,7 @@ function dataEhValida(data) {
   return existeNoCalendario && data <= dataAtualEmFortaleza();
 }
 
+// se a ia errou a categoria, cai em "Outros"
 function resolverCategoria(categorias, categoriaIdSugerido) {
   const categoriaValida = categorias.find(
     (categoria) => categoria.id === categoriaIdSugerido
@@ -214,8 +220,7 @@ function resolverCategoria(categorias, categoriaIdSugerido) {
 }
 
 function normalizarCamposDaIA(analise) {
-  // Campos inválidos extraídos pela IA nunca bloqueiam a criação: viram null
-  // e preservam os demais dados válidos (REGRAS-DE-NEGOCIO.md, seção 4).
+  // campo inválido vindo da ia vira null, não bloqueia a criação
   const estabelecimento = typeof analise.estabelecimento === 'string'
     ? analise.estabelecimento.trim()
     : null;

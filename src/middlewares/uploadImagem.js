@@ -1,7 +1,7 @@
 const multer = require('multer');
 
 const TIPOS_PERMITIDOS = ['image/jpeg', 'image/png', 'image/webp'];
-const TAMANHO_MAXIMO_BYTES = 10 * 1024 * 1024; // 10 MiB
+const TAMANHO_MAXIMO_BYTES = 10 * 1024 * 1024; // 10 mib
 
 function criarErro(statusCode, mensagem) {
   const erro = new Error(mensagem);
@@ -10,8 +10,10 @@ function criarErro(statusCode, mensagem) {
 }
 
 const upload = multer({
+  // guarda a imagem na memória pra mandar pro gemini
   storage: multer.memoryStorage(),
   limits: { fileSize: TAMANHO_MAXIMO_BYTES },
+  // só aceita jpeg, png e webp
   fileFilter(req, file, callback) {
     if (!TIPOS_PERMITIDOS.includes(file.mimetype)) {
       return callback(
