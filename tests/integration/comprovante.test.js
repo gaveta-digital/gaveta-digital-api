@@ -2,10 +2,7 @@ const path = require('path');
 const os = require('os');
 const fs = require('fs');
 
-// Isolamento: banco de dados e armazenamento exclusivos deste teste de
-// integração, definidos ANTES de qualquer require de app/models/services
-// (config/database.js e ArmazenamentoService leem essas variáveis na
-// primeira vez que são carregados).
+// banco e pasta de upload só pra este teste (definidos antes de importar o app)
 const IDENTIFICADOR = `${Date.now()}-${process.pid}`;
 const DB_TEMP = path.join(os.tmpdir(), `gaveta-digital-integracao-${IDENTIFICADOR}.sqlite`);
 const DATA_TEMP = path.join(os.tmpdir(), `gaveta-digital-integracao-data-${IDENTIFICADOR}`);
@@ -16,8 +13,7 @@ process.env.NODE_ENV = 'test';
 process.env.JWT_SECRET = 'segredo-de-integracao';
 process.env.GEMINI_API_KEY = 'chave-de-integracao';
 
-// O Gemini é sempre simulado nos testes automatizados (TEST-PLAN.md):
-// nenhuma chamada real, HTTP externo ou custo/variabilidade da API.
+// gemini simulado, nenhuma chamada real
 const mockGenerateContent = jest.fn();
 jest.mock('@google/generative-ai', () => ({
   GoogleGenerativeAI: jest.fn().mockImplementation(() => ({
@@ -37,7 +33,7 @@ function respostaGemini(objeto) {
   };
 }
 
-// PNG real de 1x1 pixel — arquivo válido de verdade, não apenas bytes soltos.
+// png de 1 pixel, só pra ter uma imagem válida
 const IMAGEM_PNG = Buffer.from(
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=',
   'base64'
@@ -121,7 +117,7 @@ describe('Integração — fluxo completo de Comprovantes', () => {
     expect(resposta.body.data.estabelecimento).toBeNull();
     expect(resposta.body.data.data).toBeNull();
     expect(resposta.body.data.valor).toBeNull();
-    // categoriaId nunca fica null: cai no fallback "Outros" do usuário.
+    // sem categoria da ia, cai em "Outros"
     expect(resposta.body.data.categoriaId).toEqual(expect.any(String));
   });
 
@@ -160,7 +156,7 @@ describe('Integração — fluxo completo de Comprovantes', () => {
     const depois = await Comprovante.count();
     expect(depois).toBe(antes);
 
-    // A aplicação não deve quebrar: a próxima requisição funciona normalmente.
+    // a api continua funcionando depois da falha
     const saude = await request(app).get('/api/teste');
     expect(saude.status).toBe(200);
   });
