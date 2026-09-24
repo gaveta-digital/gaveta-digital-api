@@ -58,10 +58,19 @@ router.use('/comprovantes', autenticacao);
  *       - bearerAuth: []
  *     parameters:
  *       - in: query
- *         name: page
+ *         name: pagina
  *         schema:
  *           type: integer
+ *           minimum: 1
  *           default: 1
+ *       - in: query
+ *         name: limite
+ *         description: Registros por página (máximo 100)
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
  *     responses:
  *       200:
  *         description: Lista de comprovantes
@@ -93,7 +102,7 @@ router.get('/comprovantes', ComprovanteController.listar);
  *         description: Comprovante não encontrado
  *       401:
  *         description: Não autenticado
- *   put:
+ *   patch:
  *     summary: Atualiza comprovante parcialmente
  *     tags:
  *       - Comprovantes
@@ -157,7 +166,7 @@ router.get('/comprovantes', ComprovanteController.listar);
  *         description: Não autenticado
  */
 router.get('/comprovantes/:id', ComprovanteController.detalhar);
-router.put('/comprovantes/:id', ComprovanteController.editar);
+router.patch('/comprovantes/:id', ComprovanteController.editar);
 router.delete('/comprovantes/:id', ComprovanteController.excluir);
 
 /**

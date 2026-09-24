@@ -75,6 +75,24 @@ describe('Integração — fluxo completo de Comprovantes', () => {
     jest.clearAllMocks();
   });
 
+  test('rota inexistente retorna 404 no formato padrão { erro }', async () => {
+    const resposta = await request(app).get('/api/rota-que-nao-existe');
+
+    expect(resposta.status).toBe(404);
+    expect(resposta.body).toEqual({ erro: 'Rota não encontrada' });
+  });
+
+  test('edição do comprovante é PATCH: PUT não existe mais', async () => {
+    const token = await criarUsuarioEToken('verbo-http@teste.com');
+
+    const resposta = await request(app)
+      .put('/api/comprovantes/qualquer-id')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ valor: 10 });
+
+    expect(resposta.status).toBe(404);
+  });
+
   test('fluxo completo: upload real -> IA -> salva no banco -> 201', async () => {
     const token = await criarUsuarioEToken('fluxo-completo@teste.com');
 
@@ -193,7 +211,7 @@ describe('Integração — fluxo completo de Comprovantes', () => {
 
     test('usuário B não consegue editar o comprovante do usuário A (403)', async () => {
       const resposta = await request(app)
-        .put(`/api/comprovantes/${comprovanteId}`)
+        .patch(`/api/comprovantes/${comprovanteId}`)
         .set('Authorization', `Bearer ${tokenB}`)
         .send({ valor: 10 });
 
@@ -254,7 +272,7 @@ describe('Integração — fluxo completo de Comprovantes', () => {
 
     test('valor negativo na edição manual é rejeitado com 400', async () => {
       const resposta = await request(app)
-        .put(`/api/comprovantes/${comprovanteId}`)
+        .patch(`/api/comprovantes/${comprovanteId}`)
         .set('Authorization', `Bearer ${token}`)
         .send({ valor: -10 });
 
@@ -266,7 +284,7 @@ describe('Integração — fluxo completo de Comprovantes', () => {
 
     test('data futura na edição manual é rejeitada com 400', async () => {
       const resposta = await request(app)
-        .put(`/api/comprovantes/${comprovanteId}`)
+        .patch(`/api/comprovantes/${comprovanteId}`)
         .set('Authorization', `Bearer ${token}`)
         .send({ data: '2999-01-01' });
 
@@ -278,7 +296,7 @@ describe('Integração — fluxo completo de Comprovantes', () => {
 
     test('campos null explícitos são aceitos na edição manual sem quebrar o fluxo', async () => {
       const resposta = await request(app)
-        .put(`/api/comprovantes/${comprovanteId}`)
+        .patch(`/api/comprovantes/${comprovanteId}`)
         .set('Authorization', `Bearer ${token}`)
         .send({ estabelecimento: null, data: null, valor: null });
 
