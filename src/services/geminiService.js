@@ -77,23 +77,44 @@ function extrairJson(texto) {
 // Uma tentativa por modelo da lista (1 chamada inicial + 3 novas tentativas).
 const ESPERAS_RETRY_MS = [500, 1000, 2000];
 
+// Tempo máximo de cada tentativa: um modelo sobrecarregado pode ficar lento em
+// vez de falhar, e sem limite o cliente esperaria quase um minuto.
+const TIMEOUT_TENTATIVA_MS = 15000;
+
+function ehTimeout(erro) {
+  // O SDK aborta a requisição ao estourar o timeout: "Request aborted when fetching ...".
+  return /Request aborted/i.test((erro && erro.message) || '');
+}
+
 function ehErroTransitorio(erro) {
-  // 503 (modelo sobrecarregado) e 429 (limite de requisições) costumam passar sozinhos.
+  // 503 (modelo sobrecarregado), 429 (limite de requisições) e timeout costumam
+  // passar sozinhos ou em outro modelo.
   if (erro && (erro.status === 503 || erro.status === 429)) {
     return true;
   }
-  return /\[(503|429)\b/.test((erro && erro.message) || '');
+  return ehTimeout(erro) || /\[(503|429)\b/.test((erro && erro.message) || '');
 }
 
 async function gerarConteudoComRetry(genAI, conteudo) {
   for (let tentativa = 0; ; tentativa += 1) {
     const modelo = MODELOS[tentativa % MODELOS.length];
     try {
-      return await genAI.getGenerativeModel({ model: modelo }).generateContent(conteudo);
+      const modeloGemini = genAI.getGenerativeModel(
+        { model: modelo },
+        { timeout: TIMEOUT_TENTATIVA_MS }
+      );
+      return await modeloGemini.generateContent(conteudo);
     } catch (erro) {
       const espera = ESPERAS_RETRY_MS[tentativa];
       if (!ehErroTransitorio(erro) || espera === undefined) {
         throw erro;
+      }
+      if (ehTimeout(erro)) {
+        // Já esperamos o tempo todo da tentativa: vai direto para o próximo modelo.
+        console.error(
+          `[geminiService] ${modelo} demorou mais de ${TIMEOUT_TENTATIVA_MS}ms (tentativa ${tentativa + 1}); tentando o próximo modelo.`
+        );
+        continue;
       }
       console.error(
         `[geminiService] Gemini indisponível temporariamente (${modelo}, tentativa ${tentativa + 1}); nova tentativa em ${espera}ms.`
