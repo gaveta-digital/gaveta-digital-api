@@ -286,7 +286,7 @@ describe('geminiService', () => {
       mockGenerateContent.mockReset();
     });
 
-    test('alterna para o modelo alternativo quando o principal está sobrecarregado', async () => {
+    test('usa gemini-3.5-flash primeiro e alterna para os demais quando está sobrecarregado', async () => {
       mockGenerateContent
         .mockRejectedValueOnce(erroSobrecarga())
         .mockRejectedValueOnce(erroSobrecarga())
@@ -298,11 +298,51 @@ describe('geminiService', () => {
       const { getGenerativeModel } = GoogleGenerativeAI.mock.results[0].value;
       const modelosUsados = getGenerativeModel.mock.calls.map(([opcoes]) => opcoes.model);
       expect(modelosUsados).toEqual([
-        'gemini-flash-latest',
         'gemini-3.5-flash',
+        'gemini-flash-latest',
         'gemini-3.6-flash',
         'gemini-3.1-flash-lite',
       ]);
+    });
+
+    test('limita cada tentativa a 15s (timeout enviado ao SDK)', async () => {
+      mockGenerateContent.mockResolvedValueOnce(respostaVazia);
+
+      await geminiService.analisarComprovante(imagemBuffer, 'image/jpeg', categorias);
+
+      const { getGenerativeModel } = GoogleGenerativeAI.mock.results[0].value;
+      expect(getGenerativeModel.mock.calls[0][1]).toEqual({ timeout: 15000 });
+    });
+
+    test('timeout passa direto para o próximo modelo, sem espera extra', async () => {
+      mockGenerateContent
+        .mockRejectedValueOnce(
+          new Error('[GoogleGenerativeAI Error]: Request aborted when fetching https://x: This operation was aborted')
+        )
+        .mockResolvedValueOnce(respostaVazia);
+
+      const resultado = await geminiService.analisarComprovante(imagemBuffer, 'image/jpeg', categorias);
+
+      expect(resultado.estabelecimento).toBe('Loja');
+      expect(mockGenerateContent).toHaveBeenCalledTimes(2);
+      expect(espiaoTimeout).not.toHaveBeenCalled();
+
+      const { getGenerativeModel } = GoogleGenerativeAI.mock.results[0].value;
+      const modelosUsados = getGenerativeModel.mock.calls.map(([opcoes]) => opcoes.model);
+      expect(modelosUsados).toEqual(['gemini-3.5-flash', 'gemini-flash-latest']);
+    });
+
+    test('se todos os modelos estourarem o timeout, devolve o 503 tratado', async () => {
+      mockGenerateContent.mockRejectedValue(
+        new Error('[GoogleGenerativeAI Error]: Request aborted when fetching https://x: aborted')
+      );
+
+      await expect(
+        geminiService.analisarComprovante(imagemBuffer, 'image/jpeg', categorias)
+      ).rejects.toMatchObject({ statusCode: 503 });
+
+      expect(mockGenerateContent).toHaveBeenCalledTimes(4);
+      mockGenerateContent.mockReset();
     });
 
     test('espera entre as tentativas (0,5s, 1s e 2s)', async () => {
