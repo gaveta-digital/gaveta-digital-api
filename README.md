@@ -17,17 +17,19 @@ Veja a proposta completa em [`docs/VISAO-GERAL-PROJETO.md`](docs/VISAO-GERAL-PRO
 
 | Integrante | Principais responsabilidades |
 |---|---|
-| João Vitor Rodrigues | Arquitetura, banco de dados, models, camada de Repository |
-| Maria Barros | CRUD de Usuário + autenticação (JWT), protótipo do app |
-| Radlei | CRUD de Categoria |
-| Clidenor | CRUD de Comprovante |
-| Cauan Ricardo | Integração com IA (Gemini), Docker, pipeline CI, testes de integração |
+| João Vitor Rodrigues | Arquitetura, banco de dados, models |
+| Maria Barros | CRUD de Categoria, protótipo do app |
+| Radlei | CRUD de Comprovante |
+| Clidenor | CRUD de Usuário, autenticação (JWT) e demais funcionalidades |
+| Cauan Ricardo | Camada de Repository, integração com IA (Gemini), Docker, pipeline CI, Swagger, testes de integração |
 
 ---
 
 ## Protótipo da Aplicação Mobile
 
-**Link:** [colar aqui o link do Figma/Canva]
+**Link:** [Figma — Gaveta Digital](https://www.figma.com/design/EK3DWo4GZUesKuCitrI8Vq/GavetaDigital?node-id=0-1&t=3MUQBYzFg52aRHla-1)
+
+Protótipo elaborado por Maria Barros.
 
 5 telas: Login, Lista de Comprovantes, Câmera, Processamento (IA), Revisão do Recibo.
 
