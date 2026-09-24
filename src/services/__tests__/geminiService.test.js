@@ -212,4 +212,125 @@ describe('geminiService', () => {
     expect(prompt).toContain('nenhuma categoria cadastrada');
     expect(resultado.categoriaId).toBeNull();
   });
+
+  describe('retry em falhas transitórias do Gemini', () => {
+    const respostaVazia = respostaGemini({
+      estabelecimento: 'Loja',
+      data: null,
+      valor: null,
+      categoriaId: null,
+    });
+    const erroSobrecarga = () => Object.assign(
+      new Error('[503 Service Unavailable] This model is currently experiencing high demand.'),
+      { status: 503 }
+    );
+    let espiaoTimeout;
+    let espiaoConsole;
+
+    beforeEach(() => {
+      // Executa a espera na hora, sem atrasar os testes.
+      espiaoTimeout = jest.spyOn(global, 'setTimeout').mockImplementation((fn) => {
+        fn();
+        return 0;
+      });
+      espiaoConsole = jest.spyOn(console, 'error').mockImplementation(() => {});
+    });
+
+    afterEach(() => {
+      espiaoTimeout.mockRestore();
+      espiaoConsole.mockRestore();
+    });
+
+    test('tenta de novo após 503 e retorna o resultado quando a segunda tentativa funciona', async () => {
+      mockGenerateContent
+        .mockRejectedValueOnce(erroSobrecarga())
+        .mockResolvedValueOnce(respostaVazia);
+
+      const resultado = await geminiService.analisarComprovante(imagemBuffer, 'image/jpeg', categorias);
+
+      expect(mockGenerateContent).toHaveBeenCalledTimes(2);
+      expect(resultado.estabelecimento).toBe('Loja');
+    });
+
+    test('também tenta de novo após 429 (limite de requisições)', async () => {
+      mockGenerateContent
+        .mockRejectedValueOnce(Object.assign(new Error('[429 Too Many Requests]'), { status: 429 }))
+        .mockResolvedValueOnce(respostaVazia);
+
+      await geminiService.analisarComprovante(imagemBuffer, 'image/jpeg', categorias);
+
+      expect(mockGenerateContent).toHaveBeenCalledTimes(2);
+    });
+
+    test('reconhece o 503 pela mensagem quando o erro não traz status', async () => {
+      mockGenerateContent
+        .mockRejectedValueOnce(new Error('[GoogleGenerativeAI Error]: [503 Service Unavailable] high demand'))
+        .mockResolvedValueOnce(respostaVazia);
+
+      await geminiService.analisarComprovante(imagemBuffer, 'image/jpeg', categorias);
+
+      expect(mockGenerateContent).toHaveBeenCalledTimes(2);
+    });
+
+    test('desiste após 3 tentativas no total e devolve o erro 503 tratado', async () => {
+      mockGenerateContent.mockRejectedValue(erroSobrecarga());
+
+      await expect(
+        geminiService.analisarComprovante(imagemBuffer, 'image/jpeg', categorias)
+      ).rejects.toMatchObject({
+        statusCode: 503,
+        message: 'Serviço de leitura indisponível no momento. Tente novamente em instantes.',
+      });
+
+      expect(mockGenerateContent).toHaveBeenCalledTimes(3);
+      mockGenerateContent.mockReset();
+    });
+
+    test('alterna para o modelo alternativo quando o principal está sobrecarregado', async () => {
+      mockGenerateContent
+        .mockRejectedValueOnce(erroSobrecarga())
+        .mockResolvedValueOnce(respostaVazia);
+
+      await geminiService.analisarComprovante(imagemBuffer, 'image/jpeg', categorias);
+
+      const { getGenerativeModel } = GoogleGenerativeAI.mock.results[0].value;
+      const modelosUsados = getGenerativeModel.mock.calls.map(([opcoes]) => opcoes.model);
+      expect(modelosUsados).toEqual(['gemini-flash-latest', 'gemini-3.5-flash']);
+    });
+
+    test('espera entre as tentativas (1s e depois 3s)', async () => {
+      mockGenerateContent
+        .mockRejectedValueOnce(erroSobrecarga())
+        .mockRejectedValueOnce(erroSobrecarga())
+        .mockResolvedValueOnce(respostaVazia);
+
+      await geminiService.analisarComprovante(imagemBuffer, 'image/jpeg', categorias);
+
+      const esperas = espiaoTimeout.mock.calls.map(([, ms]) => ms);
+      expect(esperas).toEqual([1000, 3000]);
+    });
+
+    test('não tenta de novo em erros permanentes (ex: modelo inexistente, 404)', async () => {
+      mockGenerateContent.mockRejectedValueOnce(
+        Object.assign(new Error('[404 Not Found] model not found'), { status: 404 })
+      );
+
+      await expect(
+        geminiService.analisarComprovante(imagemBuffer, 'image/jpeg', categorias)
+      ).rejects.toMatchObject({ statusCode: 503 });
+
+      expect(mockGenerateContent).toHaveBeenCalledTimes(1);
+      expect(espiaoTimeout).not.toHaveBeenCalled();
+    });
+
+    test('não tenta de novo quando a imagem é ilegível (422)', async () => {
+      mockGenerateContent.mockResolvedValueOnce(respostaGemini({ erro: 'imagem ilegível' }));
+
+      await expect(
+        geminiService.analisarComprovante(imagemBuffer, 'image/jpeg', categorias)
+      ).rejects.toMatchObject({ statusCode: 422 });
+
+      expect(mockGenerateContent).toHaveBeenCalledTimes(1);
+    });
+  });
 });

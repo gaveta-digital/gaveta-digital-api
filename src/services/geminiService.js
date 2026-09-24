@@ -2,10 +2,11 @@ const { GoogleGenerativeAI } = require('@google/generative-ai');
 
 const MENSAGEM_INDISPONIVEL = 'Serviço de leitura indisponível no momento. Tente novamente em instantes.';
 const MENSAGEM_IMAGEM_ILEGIVEL = 'Não foi possível ler o comprovante. Tente novamente com uma foto mais nítida.';
-// Alias mantido pelo Google, que sempre aponta para o modelo "flash" estável
-// mais recente — evita quebrar o serviço quando uma versão fixa (ex:
-// "gemini-1.5-flash") for descontinuada.
-const MODELO = 'gemini-flash-latest';
+// O primeiro é um alias mantido pelo Google, que sempre aponta para o modelo
+// "flash" estável mais recente — evita quebrar o serviço quando uma versão fixa
+// (ex: "gemini-1.5-flash") for descontinuada. Os demais são usados quando o
+// anterior está sobrecarregado (503/429): cada modelo tem capacidade própria.
+const MODELOS = ['gemini-flash-latest', 'gemini-3.5-flash'];
 
 function criarErro(statusCode, mensagem) {
   const erro = new Error(mensagem);
@@ -66,6 +67,35 @@ function extrairJson(texto) {
   return correspondencia ? correspondencia[0] : texto;
 }
 
+// Esperas entre tentativas: 1 chamada inicial + 2 novas tentativas no máximo.
+const ESPERAS_RETRY_MS = [1000, 3000];
+
+function ehErroTransitorio(erro) {
+  // 503 (modelo sobrecarregado) e 429 (limite de requisições) costumam passar sozinhos.
+  if (erro && (erro.status === 503 || erro.status === 429)) {
+    return true;
+  }
+  return /\[(503|429)\b/.test((erro && erro.message) || '');
+}
+
+async function gerarConteudoComRetry(genAI, conteudo) {
+  for (let tentativa = 0; ; tentativa += 1) {
+    try {
+      const modelo = MODELOS[tentativa % MODELOS.length];
+      return await genAI.getGenerativeModel({ model: modelo }).generateContent(conteudo);
+    } catch (erro) {
+      const espera = ESPERAS_RETRY_MS[tentativa];
+      if (!ehErroTransitorio(erro) || espera === undefined) {
+        throw erro;
+      }
+      console.error(
+        `[geminiService] Gemini indisponível temporariamente (tentativa ${tentativa + 1}); nova tentativa em ${espera}ms.`
+      );
+      await new Promise((resolver) => setTimeout(resolver, espera));
+    }
+  }
+}
+
 const geminiService = {
   async analisarComprovante(imagemBuffer, mimeType, categorias) {
     if (!process.env.GEMINI_API_KEY) {
@@ -76,9 +106,8 @@ const geminiService = {
     let respostaTexto;
     try {
       const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-      const model = genAI.getGenerativeModel({ model: MODELO });
 
-      const resultado = await model.generateContent([
+      const resultado = await gerarConteudoComRetry(genAI, [
         montarPrompt(categorias),
         {
           inlineData: {
