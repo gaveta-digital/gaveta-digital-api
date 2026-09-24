@@ -156,6 +156,8 @@ const ComprovanteService = {
   async excluir(id, usuarioId) {
     const comprovante = await buscarDoUsuario(id, usuarioId);
     await comprovante.destroy();
+    // depois de apagar o registro, apaga a imagem do disco
+    await ArmazenamentoService.remover(comprovante.imagemUrl);
   },
 };
 

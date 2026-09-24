@@ -8,6 +8,39 @@ describe('ArmazenamentoService', () => {
     jest.clearAllMocks();
   });
 
+  describe('remover', () => {
+    test('apaga o arquivo da pasta de dados', async () => {
+      fs.unlink.mockResolvedValueOnce();
+
+      await ArmazenamentoService.remover('uploads/foto.jpg');
+
+      expect(fs.unlink).toHaveBeenCalledTimes(1);
+      expect(fs.unlink.mock.calls[0][0]).toMatch(/uploads[\\/]foto\.jpg$/);
+    });
+
+    test('não faz nada quando não há referência', async () => {
+      await ArmazenamentoService.remover(null);
+
+      expect(fs.unlink).not.toHaveBeenCalled();
+    });
+
+    test('ignora arquivo que já não existe (ENOENT)', async () => {
+      fs.unlink.mockRejectedValueOnce(Object.assign(new Error('ENOENT'), { code: 'ENOENT' }));
+
+      await expect(ArmazenamentoService.remover('uploads/sumiu.jpg')).resolves.toBeUndefined();
+    });
+
+    test('registra no log outros erros, sem quebrar', async () => {
+      const espiao = jest.spyOn(console, 'error').mockImplementation(() => {});
+      fs.unlink.mockRejectedValueOnce(Object.assign(new Error('sem permissão'), { code: 'EACCES' }));
+
+      await expect(ArmazenamentoService.remover('uploads/foto.jpg')).resolves.toBeUndefined();
+
+      expect(espiao).toHaveBeenCalled();
+      espiao.mockRestore();
+    });
+  });
+
   describe('obterArquivo', () => {
     test('retorna null se a referência não for informada', async () => {
       const resultado = await ArmazenamentoService.obterArquivo(null);
