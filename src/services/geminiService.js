@@ -2,13 +2,15 @@ const { GoogleGenerativeAI } = require('@google/generative-ai');
 
 const MENSAGEM_INDISPONIVEL = 'Serviço de leitura indisponível no momento. Tente novamente em instantes.';
 const MENSAGEM_IMAGEM_ILEGIVEL = 'Não foi possível ler o comprovante. Tente novamente com uma foto mais nítida.';
-// O primeiro é um alias mantido pelo Google, que sempre aponta para o modelo
-// "flash" estável mais recente — evita quebrar o serviço quando uma versão fixa
-// (ex: "gemini-1.5-flash") for descontinuada. Os demais são usados quando o
-// anterior está sobrecarregado (503/429): cada modelo tem capacidade própria.
+// Modelos tentados em ordem: cada tentativa (retry) usa o próximo da lista, pois
+// a capacidade do Google varia por modelo (503/429 = sobrecarga temporária).
+// "gemini-3.5-flash" vai primeiro por ter sido o mais disponível nos testes.
+// "gemini-flash-latest" é um alias mantido pelo Google que sempre aponta para o
+// flash estável mais recente, o que evita quebrar quando uma versão fixa for
+// descontinuada (como ocorreu com "gemini-1.5-flash").
 const MODELOS = [
-  'gemini-flash-latest',
   'gemini-3.5-flash',
+  'gemini-flash-latest',
   'gemini-3.6-flash',
   'gemini-3.1-flash-lite',
 ];

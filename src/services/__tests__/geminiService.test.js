@@ -286,7 +286,7 @@ describe('geminiService', () => {
       mockGenerateContent.mockReset();
     });
 
-    test('alterna para o modelo alternativo quando o principal está sobrecarregado', async () => {
+    test('usa gemini-3.5-flash primeiro e alterna para os demais quando está sobrecarregado', async () => {
       mockGenerateContent
         .mockRejectedValueOnce(erroSobrecarga())
         .mockRejectedValueOnce(erroSobrecarga())
@@ -298,8 +298,8 @@ describe('geminiService', () => {
       const { getGenerativeModel } = GoogleGenerativeAI.mock.results[0].value;
       const modelosUsados = getGenerativeModel.mock.calls.map(([opcoes]) => opcoes.model);
       expect(modelosUsados).toEqual([
-        'gemini-flash-latest',
         'gemini-3.5-flash',
+        'gemini-flash-latest',
         'gemini-3.6-flash',
         'gemini-3.1-flash-lite',
       ]);
