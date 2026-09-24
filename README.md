@@ -20,7 +20,7 @@ Veja a proposta completa em [`docs/VISAO-GERAL-PROJETO.md`](docs/VISAO-GERAL-PRO
 | João Vitor Rodrigues | Arquitetura, banco de dados, models |
 | Maria Barros | CRUD de Categoria, protótipo do app |
 | Radlei | CRUD de Comprovante |
-| Clidenor | CRUD de Usuário, autenticação (JWT) e demais funcionalidades |
+| Clidenor | CRUD de Usuário e autenticação (JWT) |
 | Cauan Ricardo | Camada de Repository, integração com IA (Gemini), Docker, pipeline CI, Swagger, testes de integração |
 
 ---
