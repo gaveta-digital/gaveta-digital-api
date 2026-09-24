@@ -39,9 +39,10 @@ Detalhes sobre o que está implementado na API vs. o que é visão de produto: [
 
 ## Tecnologias
 
-- Node.js + Express
+- Node.js 22 + Express
 - Sequelize + SQLite
-- JWT (autenticação)
+- JWT (autenticação) e bcrypt (hash de senha)
+- Zod (validação de dados)
 - Google Gemini API (extração de dados via IA)
 - Multer (upload de imagens)
 - Swagger (documentação interativa da API)
@@ -129,7 +130,7 @@ Todas as rotas têm o prefixo `/api`. As marcadas com 🔒 exigem o header `Auth
 | POST | `/comprovantes` 🔒 | Envia a foto (`multipart/form-data`, campo `imagem`) e a IA extrai os dados |
 | GET | `/comprovantes` 🔒 | Lista os comprovantes do usuário (`pagina`, `limite`) |
 | GET | `/comprovantes/:id` 🔒 | Detalha um comprovante |
-| PUT | `/comprovantes/:id` 🔒 | Edita campos do comprovante (parcial) |
+| PATCH | `/comprovantes/:id` 🔒 | Edita parcialmente o comprovante (só os campos enviados) |
 | DELETE | `/comprovantes/:id` 🔒 | Exclui o comprovante |
 | GET | `/comprovantes/:id/imagem` 🔒 | Retorna a imagem do comprovante |
 
