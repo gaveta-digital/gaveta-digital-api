@@ -20,8 +20,7 @@ app.use('/api', routes);
 
 app.use((req, res) => {
   res.status(404).json({
-    status: 'erro',
-    message: 'Rota não encontrada',
+    erro: 'Rota não encontrada',
   });
 });
 
