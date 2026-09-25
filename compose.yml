@@ -1,0 +1,15 @@
+services:
+  api:
+    build: .
+    ports:
+      - "8080:8080"
+    env_file:
+      - .env
+    command: npm run dev
+    volumes:
+      - ./src:/app/src:ro
+      - sqlite-data:/app/data
+    init: true
+
+volumes:
+  sqlite-data:
