@@ -576,6 +576,64 @@ describe('ComprovanteService', () => {
     expect(resultado.observacoes).toBeNull();
   });
 
+  describe('excluir', () => {
+    test('apaga o registro e depois a imagem do disco', async () => {
+      const ordem = [];
+      Comprovante.findByPk.mockResolvedValueOnce({
+        id: 'comprovante-1',
+        usuarioId: 'usuario-1',
+        imagemUrl: 'uploads/foto.jpg',
+        destroy: jest.fn(async () => ordem.push('registro')),
+      });
+      ArmazenamentoService.remover.mockImplementationOnce(async () => ordem.push('imagem'));
+
+      await ComprovanteService.excluir('comprovante-1', 'usuario-1');
+
+      expect(ArmazenamentoService.remover).toHaveBeenCalledWith('uploads/foto.jpg');
+      expect(ordem).toEqual(['registro', 'imagem']);
+    });
+
+    test('não apaga a imagem se o registro não puder ser excluído', async () => {
+      Comprovante.findByPk.mockResolvedValueOnce({
+        id: 'comprovante-1',
+        usuarioId: 'usuario-1',
+        imagemUrl: 'uploads/foto.jpg',
+        destroy: jest.fn().mockRejectedValueOnce(new Error('falha no banco')),
+      });
+
+      await expect(
+        ComprovanteService.excluir('comprovante-1', 'usuario-1')
+      ).rejects.toThrow('falha no banco');
+
+      expect(ArmazenamentoService.remover).not.toHaveBeenCalled();
+    });
+
+    test('não apaga a imagem de comprovante de outro usuário (403)', async () => {
+      Comprovante.findByPk.mockResolvedValueOnce({
+        id: 'comprovante-1',
+        usuarioId: 'outro-usuario',
+        imagemUrl: 'uploads/foto.jpg',
+        destroy: jest.fn(),
+      });
+
+      await expect(
+        ComprovanteService.excluir('comprovante-1', 'usuario-1')
+      ).rejects.toMatchObject({ statusCode: 403 });
+
+      expect(ArmazenamentoService.remover).not.toHaveBeenCalled();
+    });
+
+    test('não apaga nada se o comprovante não existir (404)', async () => {
+      Comprovante.findByPk.mockResolvedValueOnce(null);
+
+      await expect(
+        ComprovanteService.excluir('inexistente', 'usuario-1')
+      ).rejects.toMatchObject({ statusCode: 404 });
+
+      expect(ArmazenamentoService.remover).not.toHaveBeenCalled();
+    });
+  });
+
   test.each(['editar', 'excluir'])(
     '%s rejeita acesso de outro usuário com 403',
     async (operacao) => {
