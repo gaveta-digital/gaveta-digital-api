@@ -30,6 +30,7 @@ Elementos visuais presentes no protótipo que representam a proposta completa do
 * Filtro por categoria na listagem
 * Resumo financeiro do mês (total gasto, contagem) — se implementado no app, pode ser calculado no front a partir da lista já retornada por GET /comprovantes, sem precisar de endpoint novo
 * Avatar/foto de perfil do usuário — campo não existe no model Usuario
+* Escolha de imagem pela galeria do celular — a tela de Câmera do protótipo captura a foto na hora; a API em si aceita qualquer imagem enviada em `POST /comprovantes` (câmera ou galeria), mas a opção de abrir a galeria ainda não está na tela do protótipo
 
 Elementos visuais sem correspondência funcional direta na API
 * Etapas de progresso durante o processamento ("Detectando texto", "Validando campos", "Categorizando"): a API responde em uma única chamada síncrona ao Gemini — essas etapas são uma representação visual de espera (UX), não múltiplas chamadas reais.
