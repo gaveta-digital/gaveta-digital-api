@@ -18,10 +18,10 @@ Veja a proposta completa em [`docs/VISAO-GERAL-PROJETO.md`](docs/VISAO-GERAL-PRO
 | Integrante | Principais responsabilidades |
 |---|---|
 | João Vitor Rodrigues | Arquitetura, banco de dados, models |
-| Maria Barros | CRUD de Categoria, protótipo do app |
-| Radlei | CRUD de Comprovante |
-| Clidenor | CRUD de Usuário e autenticação (JWT) |
-| Cauan Ricardo | Camada de Repository, integração com IA (Gemini), Docker, pipeline CI, Swagger, testes de integração |
+| Maria José Pinho Barros | CRUD de Categoria, protótipo do app |
+| Radlei Eugenio Doroth | CRUD de Comprovante |
+| Clidenor Lopes Martins Filho | CRUD de Usuário e autenticação (JWT) |
+| Cauan Ricardo Ribeiro | Camada de Repository, integração com IA (Gemini), Docker, pipeline CI, Swagger, testes de integração |
 
 ---
 
