@@ -39,7 +39,7 @@ Documentação completa: [`docs/VISAO-GERAL-PROJETO.md`](docs/VISAO-GERAL-PROJET
 
 **Execução:**
 
-1. Crie o `.env` a partir do exemplo: `cp .env.example .env` (no PowerShell: `Copy-Item .env.example .env`).
+1. Entre na pasta da API (`cd api`; todos os comandos abaixo rodam de dentro dela) e crie o `.env` a partir do exemplo: `cp .env.example .env` (no PowerShell: `Copy-Item .env.example .env`).
 2. Preencha as variáveis:
 
 | Variável | Descrição |
