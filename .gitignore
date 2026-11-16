@@ -5,4 +5,4 @@ node_modules/
 *.log
 .idea/
 .artifacts/
-data/uploads/
+**/data/uploads/

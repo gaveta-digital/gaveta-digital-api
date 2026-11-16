@@ -1,6 +1,7 @@
 # Integração contínua
 
-O workflow `.github/workflows/ci.yml` instala as dependências com `npm ci`
+O workflow `.github/workflows/ci.yml` roda na pasta `api/` (`working-directory: api`),
+instala as dependências com `npm ci`
 e executa `npm test -- --ci --runInBand` em cada push e pull request.
 Usa Node.js 22 e um SQLite temporário, separado do banco de desenvolvimento.
 Uma falha do Jest faz o job `tests` falhar; não há tolerância a falhas nem
@@ -27,7 +28,7 @@ Referência: https://docs.github.com/en/repositories/configuring-branches-and-me
 Após publicar o workflow e ativar as regras:
 
 1. Criar `feature/validar-ci` a partir de `develop` com o workflow presente.
-2. Adicionar temporariamente `src/models/__tests__/ci-failure.test.js` contendo:
+2. Adicionar temporariamente `api/src/models/__tests__/ci-failure.test.js` contendo:
 
    ```js
    test('falha proposital para validar CI', () => {
