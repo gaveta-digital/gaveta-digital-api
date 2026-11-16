@@ -7,11 +7,11 @@ Equipe: [Número da equipe]
 
 | Nome completo | Matrícula | Turma | Turno | GitHub |
 |---|---|---|---|---|
-| Cauan Ricardo Ribeiro | [Matrícula] | [Turma] | [Turno] | [@usuário] |
-| Clidenor Lopes Martins Filho | [Matrícula] | [Turma] | [Turno] | [@usuário] |
-| João Vitor Rodrigues | [Matrícula] | [Turma] | [Turno] | [@usuário] |
-| Maria José Pinho Barros | [Matrícula] | [Turma] | [Turno] | [@usuário] |
-| Radlei Eugenio Doroth | [Matrícula] | [Turma] | [Turno] | [@usuário] |
+| Cauan Ricardo Ribeiro | [Matrícula] | [Turma] | [Turno] | [@cauanrricardo] |
+| Clidenor Lopes Martins Filho | [Matrícula] | [Turma] | [Turno] | [@ClidenorFilho] |
+| João Vitor Rodrigues | [Matrícula] | [Turma] | [Turno] | [@Joao-Vitor-Rd] |
+| Maria José Pinho Barros | [Matrícula] | [Turma] | [Turno] | [@dev-mariab] |
+| Radlei Eugenio Doroth | [Matrícula] | [Turma] | [Turno] | [@radleidoroth] |
 
 ### Descrição do projeto
 
