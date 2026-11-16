@@ -4,7 +4,7 @@
 
 ## 1. Usuario
 
-**Escopo atual:** cadastro via `POST /usuarios` e autenticação via `POST /login`. Consulta de perfil, edição de perfil e exclusão de conta não fazem parte desta entrega. Os caminhos são relativos ao prefixo `/api` da aplicação.
+**Escopo atual:** cadastro via `POST /usuarios` e autenticação via `POST /login`. Na Etapa 2 entram a consulta do próprio perfil (`GET /usuarios/me`) e a edição do próprio nome (`PATCH /usuarios/me`). Exclusão de conta e alteração de e-mail ou senha não fazem parte desta entrega. Os caminhos são relativos ao prefixo `/api` da aplicação.
 
 | Campo   | Regras                                                                                                                                                                                                                                     |
 | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -81,6 +81,15 @@
 - E-mail já cadastrado → `409 Conflict`
 - Campos obrigatórios ausentes → `400 Bad Request`
 - Login com credenciais erradas → `401 Unauthorized`
+
+**Perfil do usuário (Etapa 2):**
+
+- `GET /usuarios/me` e `PATCH /usuarios/me` exigem autenticação e operam sempre sobre o usuário do token; não recebem `id` na rota.
+- `GET /usuarios/me` retorna `200 OK` com `id`, `nome` e `email`, sem senha nem hash.
+- `PATCH /usuarios/me` aceita somente o campo `nome`, com as mesmas regras de validação do cadastro. Qualquer outro campo (como `email` ou `senha`) ou corpo vazio retorna `400 Bad Request`, sem aplicar alterações.
+- Quando a edição for concluída, retornar `200 OK` com `id`, `nome` e `email` atualizados.
+
+**Validade do token (Etapa 2):** o token JWT emitido no login vale 7 dias, para o aplicativo manter o usuário conectado entre usos. Token expirado retorna `401 Unauthorized`.
 
 ---
 
@@ -169,6 +178,7 @@
 | `data`            | string ou null | Data real no formato `YYYY-MM-DD`. Pode ser `null` se não identificada. Aceitar hoje ou datas passadas; não permitir data futura, considerando o fuso `America/Fortaleza`.                                                      |
 | `valor`           | number ou null | Número maior que zero e menor ou igual a 9.999.999,99, com até duas casas decimais. Pode ser `null` se não identificado. Editável pelo proprietário do comprovante.                                                             |
 | `categoriaId`     | FK             | Deve apontar para uma categoria do proprietário do comprovante. Se a IA não retornar uma categoria válida desse usuário, usar a categoria `Outros` dele (nunca salvar `null`). Pode ser alterado manualmente pelo proprietário. |
+| `observacoes`     | string ou null | Opcional. Até 500 caracteres após remover espaços das extremidades *(limite da Etapa 2)*. Texto vazio ou só com espaços vira `null`. Preenchido apenas pelo usuário; a IA não preenche este campo. |
 | `imagemUrl`       | string         | Referência interna ao arquivo armazenado, preenchida pelo backend a partir do upload. Obrigatória: sem imagem, não existe comprovante. Não é uma URL pública nem um endereço informado pelo cliente.                            |
 | `usuarioId`       | FK             | Obrigatório, preenchido automaticamente pelo usuário logado (nunca vem do corpo da requisição, por segurança).                                                                                                                  |
 
@@ -190,6 +200,30 @@
 - Listar apenas os comprovantes do usuário autenticado.
 - Ordenar pelos cadastrados mais recentemente primeiro, usando a data de criação do registro, não a data extraída da imagem.
 - Aplicar paginação com 20 registros por página por padrão e no máximo 100 registros por requisição.
+- **Filtro por categoria (Etapa 2):** o parâmetro opcional `categoriaId` restringe a lista a uma categoria. Ela precisa pertencer ao usuário autenticado; `categoriaId` inválido, inexistente ou de outro usuário retorna `400 Bad Request`.
+- **Busca (Etapa 2):** o parâmetro opcional `busca` filtra os comprovantes cujo `estabelecimento` ou `observacoes` contenham o texto, sem diferenciar maiúsculas e minúsculas. Remover espaços das extremidades; busca vazia é ignorada; mais de 100 caracteres retorna `400 Bad Request`.
+- Filtro, busca e paginação podem ser combinados: a paginação se aplica ao resultado já filtrado.
+
+**Resumo do mês (Etapa 2):**
+
+- `GET /comprovantes/resumo`, com autenticação, considera apenas os comprovantes do usuário autenticado.
+- O parâmetro opcional `mes`, no formato `YYYY-MM`, escolhe o mês. Sem ele, usar o mês atual no fuso `America/Fortaleza`. Formato inválido ou mês futuro retorna `400 Bad Request`.
+- O mês de cada comprovante é o da sua `data`. Quando `data` for `null`, usar a data de cadastro do registro, no fuso `America/Fortaleza`.
+- Retornar `200 OK` com `mes`, `total` (soma dos valores), `quantidade` e `porCategoria`, uma lista com `categoriaId`, `nome`, `total` e `quantidade` de cada categoria que tenha comprovantes no mês, da maior para a menor soma.
+- Comprovantes com `valor` `null` contam em `quantidade`, mas não somam em `total`.
+- Mês sem comprovantes retorna `total` 0, `quantidade` 0 e `porCategoria` vazia.
+
+```json
+{
+  "mes": "2026-09",
+  "total": 546.7,
+  "quantidade": 6,
+  "porCategoria": [
+    { "categoriaId": "…", "nome": "Material", "total": 295.5, "quantidade": 2 },
+    { "categoriaId": "…", "nome": "Alimentação", "total": 106.3, "quantidade": 2 }
+  ]
+}
+```
 
 **Upload e acesso à imagem:**
 
@@ -333,6 +367,13 @@ Exemplo: a foto é nítida, mas a data está cortada fora do enquadramento.
 - Se o comprovante puder ser interpretado, mas um campo específico não estiver legível, retornar `null` nesse campo, sem rejeitar toda a imagem.
 - Não adotar uma porcentagem arbitrária de visibilidade declarada pela IA como critério de aceitação. Usar os critérios de legibilidade acima e não inventar informações.
 
+### Modelos e tentativas
+
+- A lista de modelos fica na variável de ambiente `GEMINI_MODELS`, em ordem de preferência, separada por vírgulas. Sem a variável, a API usa uma lista padrão definida no código *(Etapa 2)*.
+- Priorizar os modelos Flash-Lite, que respondem mais rápido e têm cota gratuita maior; deixar os modelos Flash como alternativa. Não usar modelos da família 2.5 nem 1.5.
+- Cada tentativa tem tempo limite de 15 segundos. Timeout, `429` (limite de requisições) ou `503` do Gemini levam à próxima tentativa; esgotadas as tentativas, a API responde `503`, conforme o Caso 3.
+- Cada tentativa gera um registro de uso da IA (seção 9).
+
 ### Regra geral de ouro
 
 **A IA nunca deve "inventar" (alucinar) um dado.** É preferível `null` a um dado errado — isso deve estar explícito no prompt do sistema.
@@ -376,3 +417,67 @@ Todas as rotas devem seguir o mesmo formato de erro, pra facilitar tratamento no
 - Um usuário só pode ver, editar ou excluir **seus próprios** comprovantes — nunca de outro usuário, mesmo sabendo o `id`.
 - Um usuário só pode acessar e gerenciar suas próprias categorias. Um comprovante só pode ser vinculado a uma categoria do mesmo proprietário.
 - A chave da API do Gemini nunca deve aparecer em nenhuma resposta da API nem em log de erro.
+- O aplicativo nunca chama o Gemini diretamente nem guarda a chave: toda leitura passa pela API.
+- No aplicativo, o token fica no armazenamento seguro do dispositivo (`expo-secure-store`) e é apagado ao sair.
+
+---
+
+## 8. Aplicativo mobile (Etapa 2)
+
+O aplicativo valida os dados antes de enviar, para dar retorno imediato ao usuário. A API continua validando tudo e é a fonte da verdade: as regras do app espelham as das seções acima.
+
+### Validações nos formulários
+
+| Formulário | Regras no app |
+| ---------- | ------------- |
+| Login | E-mail com formato válido; senha preenchida. |
+| Cadastro | Nome com as regras da seção 1; e-mail válido; senha com 8 ou mais caracteres, letra maiúscula, letra minúscula e número; confirmação igual à senha (a confirmação não é enviada à API). |
+| Categoria | Nome de 1 a 50 caracteres, com pelo menos uma letra. |
+| Revisão e edição do comprovante | Valor digitado com vírgula ("150,50") e convertido para número; maior que zero, até duas casas decimais e até 9.999.999,99. Data escolhida em seletor que não permite datas futuras. Estabelecimento até 150 e observações até 500 caracteres. Categoria escolhida entre as do usuário. |
+| Perfil | Nome com as regras da seção 1. |
+
+### Comportamento diante das respostas
+
+| Situação | O que o app faz |
+| -------- | --------------- |
+| Requisição em andamento | Mostra carregamento e desativa o botão que a disparou, evitando envio duplicado. |
+| Sucesso ao criar, editar ou excluir | Mostra uma mensagem curta de sucesso e atualiza a tela. |
+| `400`, `409`, `413` ou `415` | Mostra a mensagem do campo `erro` junto ao formulário ou à ação. |
+| `401` | Apaga o token salvo e volta ao Login com "Sua sessão expirou. Entre novamente." |
+| `422` na leitura | Volta à Captura com "Não conseguimos ler o comprovante. Tente uma foto mais nítida." |
+| `503` | "Leitura indisponível no momento. Tente novamente em instantes." |
+| Sem resposta do servidor | "Sem conexão com o servidor." com a opção de tentar de novo. |
+| Resposta fora do formato esperado | "Recebemos uma resposta inválida do servidor." |
+| Lista vazia | Explica que ainda não há comprovantes e oferece adicionar o primeiro. |
+| Filtro ou busca sem resultado | "Nenhum comprovante encontrado." |
+| Excluir comprovante ou categoria | Pede confirmação antes de enviar. |
+
+### Fluxo do comprovante no app
+
+1. Captura pela câmera ou pela galeria. O app reduz a imagem (lado maior com cerca de 1280 px) antes do envio, para economizar tempo e tokens.
+2. `POST /comprovantes`: a API lê a imagem e já cria o comprovante.
+3. Revisão: **Salvar** envia `PATCH /comprovantes/:id` com os dados confirmados ou corrigidos; **Descartar** envia `DELETE /comprovantes/:id` após confirmação.
+4. A lista e o resumo são atualizados ao voltar.
+
+---
+
+## 9. Registro de uso da IA (Etapa 2)
+
+Toda tentativa de leitura no Gemini gera um registro `UsoIA`, inclusive as que falham, porque uma imagem ilegível também consome tokens.
+
+| Campo | Regra |
+| ----- | ----- |
+| `usuarioId` | Usuário que enviou a imagem. Preenchido pela API. |
+| `comprovanteId` | Comprovante criado na leitura; `null` quando nenhum foi criado (`422`, `503` ou tentativa que levou à próxima). |
+| `modelo` | Modelo usado na tentativa. |
+| `tokensEntrada` | `usageMetadata.promptTokenCount` da resposta do Gemini. |
+| `tokensSaida` | `usageMetadata.candidatesTokenCount`, somado a `thoughtsTokenCount` quando o modelo informar raciocínio. |
+| `tokensTotal` | `usageMetadata.totalTokenCount`. |
+| `duracaoMs` | Duração da tentativa, em milissegundos. |
+| `resultado` | `sucesso`, `ilegivel` ou `erro`. |
+
+- Sem resposta do Gemini (timeout ou falha de rede), os tokens ficam `0` e o resultado é `erro`.
+- Falha ao gravar o registro não pode impedir nem desfazer a criação do comprovante; o problema é apenas registrado em log.
+- Excluir um comprovante não apaga seus registros de uso; o `comprovanteId` passa a `null`.
+- `GET /uso-ia`, com autenticação, retorna somente os dados do próprio usuário: `totalTentativas`, `tokensEntrada`, `tokensSaida`, `tokensTotal`, a lista `porModelo` (modelo, tentativas e tokens) e as `ultimas` 10 tentativas.
+- Os registros de uso não aparecem no aplicativo; são consultados pela API (Swagger ou Postman).

@@ -1,4 +1,4 @@
-# Plano de testes — Comprova+ API
+# Plano de testes — Gaveta Digital API
 
 ## 1. Objetivo e referência
 
