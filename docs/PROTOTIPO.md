@@ -1,42 +1,75 @@
-Protótipo — Gaveta Digital
-Link do protótipo: https://www.figma.com/design/EK3DWo4GZUesKuCitrI8Vq/GavetaDigital?node-id=0-1&t=3MUQBYzFg52aRHla-1
+# Protótipo — Gaveta Digital
 
-Ferramenta: Figma
+**Link do protótipo:** https://www.figma.com/design/EK3DWo4GZUesKuCitrI8Vq/GavetaDigital?t=5UgEUgDg0k5EXWAP-1
+**Ferramenta:** Figma
 
-Telas 
-1. Login 
-2. Lista de Comprovantes 
-3. Câmera (Capturar Recibo)
-4. Processamento (IA Processando)
-5. Revisão do Recibo (edição pós-IA)
+---
 
-Fluxo de navegação
-Login → Lista → Câmera → Processamento → Revisão → Lista Em caso de erro na Revisão: Revisão → Câmera
+## Identidade Visual
+- **Cor primária:** Azul-marinho (`#1A237E`)
+- **Cor de destaque / acento:** Ciano (`#5CD6EB`)
+- **Confirmação / Ações principais:** Verde (`#2E7D32`)
 
-O que já está implementado na API (Etapa 1)
-* Cadastro e login (e-mail + senha, JWT)
-* CRUD de Categoria
-* CRUD de Comprovante
-* Integração real com IA (Gemini): extração de estabelecimento, data, valor e categoria a partir da imagem
-* Categoria escolhida pela IA a partir da lista de categorias do próprio usuário (fallback: "Outros")
-* Persistência em banco de dados
+---
 
-O que é visão de produto (protótipo, não implementado nesta etapa)
+## Telas (Etapa 2)
 
-Elementos visuais presentes no protótipo que representam a proposta completa do produto, mas que não fazem parte do escopo da API construída na Etapa 1:
-* Login social (Google / Apple)
-* Recuperação de senha ("Esqueci minha senha")
-* Busca textual de comprovantes
-* Filtro por categoria na listagem
-* Resumo financeiro do mês (total gasto, contagem) — se implementado no app, pode ser calculado no front a partir da lista já retornada por GET /comprovantes, sem precisar de endpoint novo
-* Avatar/foto de perfil do usuário — campo não existe no model Usuario
+### Autenticação
+1. **Login** (`POST /auth/login`) — E-mail e senha, com estado de erro (`"E-mail ou senha inválidos"`) e acesso para cadastro.
+2. **Cadastro** (`POST /auth/register`) — Nome, e-mail, senha, confirmar senha, botão *"Criar conta"*, link *"Já tenho conta"* e validação de campo (ex.: `"E-mail já cadastrado"`).
 
-Elementos visuais sem correspondência funcional direta na API
-* Etapas de progresso durante o processamento ("Detectando texto", "Validando campos", "Categorizando"): a API responde em uma única chamada síncrona ao Gemini — essas etapas são uma representação visual de espera (UX), não múltiplas chamadas reais.
+### Navegação Principal (Barra inferior com 3 abas)
+3. **Lista de Comprovantes** (`GET /comprovantes`) — Avatar com iniciais do usuário, card de resumo clicável (*"Ver por categoria ›"*), busca, filtro por categoria e botão flutuante da câmera.
+4. **Categorias** (`GET /categorias`, `POST /categorias`, `PATCH /categorias/:id`, `DELETE /categorias/:id`) — Lista de categorias do usuário com edição e exclusão, categoria padrão `"Outros"` bloqueada com cadeado e modal `"+ Nova categoria"`.
+5. **Perfil** (`GET /usuarios/me`, `PATCH /usuarios/me`) — Círculo com iniciais do nome, exibição de nome e e-mail, edição de nome e botão *"Sair"* em vermelho.
 
-Correção aplicada
-* Indicador de "% de confiança da IA" (ex: "92% confiança") foi removido da tela de Revisão do Recibo — a API do Gemini não retorna um score de confiança para este tipo de extração; exibir esse número seria apresentar um dado que o sistema não gera de fato.
+### Telas Sobrepostas (Sem barra inferior)
+6. **Resumo do Mês** (`GET /comprovantes/resumo`) — Seletor de mês (`‹ Novembro 2026 ›`), total gasto, contagem de comprovantes, barras horizontais por categoria (valor e porcentagem) e estado vazio (`"Nenhum gasto neste mês"`).
+7. **Detalhe do Comprovante** (`GET /comprovantes/:id`, `PATCH /comprovantes/:id`, `DELETE /comprovantes/:id`) — Foto no topo, estabelecimento, data, valor, categoria, observações e ações de *"Editar"* e *"Excluir"*.
+8. **Captura (Câmera)** (`POST /comprovantes`) — Moldura de captura e estado de erro para imagem ilegível.
+9. **Processando (IA Processando)** (`POST /comprovantes/ocr`) — Animação de espera com etapas visuais.
+10. **Revisão do Recibo** (`PATCH /comprovantes/:id`, `DELETE /comprovantes/:id`) — Selo *"Dados extraídos via IA"*, seletor de data, edição dos campos extraídos, observações e botões *"Salvar no Histórico"* e *"Descartar"*.
 
-Fluxo de criação do comprovante (definição)
+---
 
-O comprovante só é persistido no banco (POST /comprovantes) no momento em que o usuário confirma na tela de Revisão ("Salvar no Histórico"). Antes disso, os dados extraídos pela IA ficam apenas em memória no app — não existe conceito de "rascunho" salvo no banco.
+## Fluxos de Navegação
+- **Autenticação:** `Login` → `Lista de Comprovantes` | `Login` ↔ `Cadastro` → `Lista de Comprovantes`
+- **Abas Inferiores:** `Comprovantes` ↔ `Categorias` ↔ `Perfil` (`Sair` → `Login`)
+- **Análise e Detalhes:**
+    - `Lista` (card de resumo) → `Resumo do Mês` → `Lista`
+    - `Lista` (item) → `Detalhe do Comprovante` → `Edição` ou `Modal Excluir` → `Lista`
+- **Captura e Extração IA:**
+    - `Lista` (FAB Câmera) → `Captura` → `Processando` → `Revisão` → `Lista`
+    - Em caso de descarte na Revisão: `Revisão` → `Modal Excluir` → `Lista` (ou nova captura)
+
+---
+
+## Estados Cobertos no Protótipo
+- **Lista vazia:** `"Você ainda não tem comprovantes"` + botão para adicionar o primeiro.
+- **Busca/filtro sem resultado:** `"Nenhum comprovante encontrado"`.
+- **Sem conexão:** Ícone de offline, `"Sem conexão com o servidor"` + botão `"Tentar de novo"`.
+- **Imagem ilegível (Captura):** `"Não conseguimos ler o comprovante. Tente uma foto mais nítida."`
+- **Confirmação de exclusão / descarte:** `"Excluir este comprovante?"` com opções *Cancelar* / *Excluir*.
+- **Feedback de sucesso:** Toast curto (ex.: `"Comprovante salvo"`).
+- **Carregamento:** Estado de *loading* na listagem de comprovantes.
+- **Erros de autenticação:** `"E-mail ou senha inválidos"` no Login e `"E-mail já cadastrado"` abaixo do campo no Cadastro.
+
+---
+
+## Alinhamento com a API (Etapa 1 → Etapa 2)
+
+### O que já está implementado na API
+- Cadastro e login (e-mail + senha, JWT)
+- CRUD de Categoria e CRUD de Comprovante
+- Integração real com IA (Gemini): extração de estabelecimento, data, valor e categoria a partir da imagem, com fallback para `"Outros"`
+- Persistência em banco de dados
+
+### Ajustes de Escopo Aplicados na Etapa 2
+- **Autenticação simplificada:** Removidos botões de login social (Google / Apple), divisor *"ou continue com"* e *"Esqueci minha senha"* para alinhar 100% ao fluxo de e-mail/senha da API.
+- **Identidade do usuário sem foto:** Substituída a foto de perfil por círculo com as iniciais do nome do usuário na Lista e no Perfil (campo de foto não existe no model `Usuario`).
+- **Indicador de confiança removido:** Removida a barra `"92% confiança"` da Revisão (a API do Gemini não gera esse score), mantendo apenas o selo `"Dados extraídos via IA"`.
+- **Padronização de endpoints:** A revisão pós-IA e a edição no Detalhe utilizam `PATCH /comprovantes/:id` (em vez de `PUT`), enquanto o descarte e a exclusão utilizam `DELETE /comprovantes/:id`.
+
+### Elementos Visuais sem Correspondência Direta de Múltiplas Chamadas
+- **Etapas de progresso no processamento** (*"Detectando texto"*, *"Validando campos"*, *"Categorizando"*): a API responde em uma única chamada síncrona ao Gemini — essas etapas funcionam apenas como feedback visual de espera (UX).
+- **Resumo financeiro do mês:** Pode ser calculado diretamente no front-end a partir dos dados de `GET /comprovantes` ou consumido via agregação por mês/categoria.
