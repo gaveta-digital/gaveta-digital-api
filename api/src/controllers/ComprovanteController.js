@@ -11,9 +11,9 @@ function tratarErroConhecido(erro, res, next) {
 const ComprovanteController = {
   async criar(req, res, next) {
     try {
-      const comprovante = await ComprovanteService.criar(
+      const comprovante = await ComprovanteService.criarComIA(
         req.usuarioId,
-        req.body
+        req.file
       );
 
       return res.status(201).json({
@@ -52,6 +52,20 @@ const ComprovanteController = {
         status: 'sucesso',
         data: comprovante,
       });
+    } catch (erro) {
+      return tratarErroConhecido(erro, res, next);
+    }
+  },
+
+  async imagem(req, res, next) {
+    try {
+      const { caminhoCompleto, mimeType } = await ComprovanteService.obterImagem(
+        req.params.id,
+        req.usuarioId
+      );
+
+      res.type(mimeType);
+      return res.sendFile(caminhoCompleto);
     } catch (erro) {
       return tratarErroConhecido(erro, res, next);
     }

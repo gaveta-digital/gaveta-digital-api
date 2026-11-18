@@ -1,5 +1,9 @@
 const ComprovanteRepository = require('../repositories/ComprovanteRepository');
 const CategoriaRepository = require('../repositories/CategoriaRepository');
+const ArmazenamentoService = require('./ArmazenamentoService');
+const geminiService = require('./geminiService');
+
+const NOME_CATEGORIA_PADRAO = 'Outros';
 
 const CAMPOS_EDITAVEIS = [
   'estabelecimento',
@@ -58,6 +62,44 @@ const ComprovanteService = {
     return serializarComprovante(comprovante);
   },
 
+  // cria o comprovante a partir da foto: o gemini lê a imagem e devolve os dados
+  async criarComIA(usuarioId, arquivo) {
+    // pega as categorias do usuário pra ia escolher uma
+    const categorias = await CategoriaRepository.findAllByUsuario(usuarioId);
+
+    // manda a imagem pro gemini (se ilegível ou fora do ar, o erro para aqui)
+    const analise = await geminiService.analisarComprovante(
+      arquivo.buffer,
+      arquivo.mimetype,
+      categorias.map((categoria) => ({ id: categoria.id, nome: categoria.nome }))
+    );
+
+    // confere a categoria da ia, se inválida usa "Outros"
+    const categoriaId = resolverCategoria(categorias, analise.categoriaId);
+    const camposNormalizados = normalizarCamposDaIA(analise);
+
+    // salva a imagem no disco e depois o comprovante no banco
+    const imagemUrl = await ArmazenamentoService.salvar(
+      arquivo.buffer,
+      arquivo.mimetype
+    );
+
+    try {
+      const comprovante = await ComprovanteRepository.create({
+        ...camposNormalizados,
+        categoriaId,
+        imagemUrl,
+        usuarioId,
+      });
+
+      return serializarComprovante(comprovante);
+    } catch (erro) {
+      // se falhar ao salvar no banco, apaga a imagem pra não ficar solta
+      await ArmazenamentoService.remover(imagemUrl);
+      throw erro;
+    }
+  },
+
   async listar(usuarioId, query = {}) {
     const pagina = query.pagina === undefined ? 1 : Number(query.pagina);
     const limiteSolicitado = query.limite === undefined
@@ -83,6 +125,17 @@ const ComprovanteService = {
     return serializarComprovante(comprovante);
   },
 
+  async obterImagem(id, usuarioId) {
+    const comprovante = await buscarDoUsuario(id, usuarioId);
+    const arquivo = await ArmazenamentoService.obterArquivo(comprovante.imagemUrl);
+
+    if (!arquivo) {
+      throw criarErro(404, 'Imagem do comprovante não encontrada.');
+    }
+
+    return arquivo;
+  },
+
   async editar(id, usuarioId, body) {
     const comprovante = await buscarDoUsuario(id, usuarioId);
     const dados = validarEPrepararCampos(body, {
@@ -103,6 +156,8 @@ const ComprovanteService = {
   async excluir(id, usuarioId) {
     const comprovante = await buscarDoUsuario(id, usuarioId);
     await comprovante.destroy();
+    // depois de apagar o registro, apaga a imagem do disco
+    await ArmazenamentoService.remover(comprovante.imagemUrl);
   },
 };
 
@@ -111,7 +166,7 @@ function serializarComprovante(comprovante) {
     ? comprovante.toJSON()
     : { ...comprovante };
 
-  // A referência interna do armazenamento não deve ser exposta ao cliente.
+  // não mostra o caminho interno da imagem pro cliente
   delete dados.imagemUrl;
   return dados;
 }
@@ -140,6 +195,45 @@ function dataEhValida(data) {
     && dataUtc.getUTCDate() === dia;
 
   return existeNoCalendario && data <= dataAtualEmFortaleza();
+}
+
+// se a ia errou a categoria, cai em "Outros"
+function resolverCategoria(categorias, categoriaIdSugerido) {
+  const categoriaValida = categorias.find(
+    (categoria) => categoria.id === categoriaIdSugerido
+  );
+
+  if (categoriaValida) {
+    return categoriaValida.id;
+  }
+
+  const categoriaPadrao = categorias.find(
+    (categoria) => categoria.nome === NOME_CATEGORIA_PADRAO
+  );
+
+  if (!categoriaPadrao) {
+    throw criarErro(
+      500,
+      'Categoria padrão "Outros" não encontrada para o usuário.'
+    );
+  }
+
+  return categoriaPadrao.id;
+}
+
+function normalizarCamposDaIA(analise) {
+  // campo inválido vindo da ia vira null, não bloqueia a criação
+  const estabelecimento = typeof analise.estabelecimento === 'string'
+    ? analise.estabelecimento.trim()
+    : null;
+
+  return {
+    estabelecimento: estabelecimento && estabelecimento.length <= 150
+      ? estabelecimento
+      : null,
+    data: dataEhValida(analise.data) ? analise.data : null,
+    valor: valorEhValido(analise.valor) ? analise.valor : null,
+  };
 }
 
 function valorEhValido(valor) {

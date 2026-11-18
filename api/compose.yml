@@ -3,8 +3,7 @@ services:
     build: .
     ports:
       - "8080:8080"
-    # o docker puxa TODAS as variáveis direto do seu .env
-    env_file: 
+    env_file:
       - .env
     command: npm run dev
     volumes:
