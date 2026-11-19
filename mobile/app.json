@@ -1,0 +1,20 @@
+{
+  "expo": {
+    "name": "Gaveta Digital",
+    "slug": "gaveta-digital",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "scheme": "gavetadigital",
+    "userInterfaceStyle": "light",
+    "plugins": [
+      "expo-router",
+      "expo-secure-store",
+      "expo-image",
+      "@react-native-community/datetimepicker",
+      "expo-status-bar"
+    ],
+    "experiments": {
+      "typedRoutes": false
+    }
+  }
+}

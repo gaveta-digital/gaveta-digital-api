@@ -113,6 +113,43 @@ Para rodar os testes em um contêiner isolado:
 docker compose run --rm -e NODE_ENV=test -e DB_STORAGE=/tmp/gaveta-digital-test.sqlite api npm test -- --ci --runInBand
 ```
 
+## Aplicação mobile
+
+O aplicativo fica em [`mobile/`](mobile/) e usa Expo SDK 58 em JavaScript.
+
+### Instalação
+
+No Windows PowerShell:
+
+```bash
+cd mobile
+copy .env.example .env
+npm install
+npx expo start
+```
+
+Descubra o IPv4 do computador com `ipconfig`. O celular deve estar na mesma rede Wi-Fi e o `.env` deve apontar para:
+
+```env
+EXPO_PUBLIC_API_URL=http://SEU-IP-DA-LAN:8080
+```
+
+Escaneie o QR Code no Expo Go. Para iPhone ou Android, a API e o celular devem conseguir acessar o IP da rede local.
+
+### API e aplicativo mobile juntos com Docker
+
+Preencha `GEMINI_API_KEY` no `.env`, mantenha o computador na mesma rede Wi-Fi do celular e execute na raiz do projeto:
+
+```bash
+powershell -ExecutionPolicy Bypass -File .\scripts\start-docker.ps1
+```
+
+- API: `http://IP-DETECTADO-AUTOMATICAMENTE:8080`
+- Expo: `http://IP-DETECTADO-AUTOMATICAMENTE:8081`
+- Escaneie o QR code exibido no terminal com o Expo Go.
+
+O script detecta o IPv4 ativo e atualiza `mobile/.env` automaticamente.
+
 ---
 
 ## Rotas da API
