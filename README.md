@@ -1,70 +1,46 @@
-# Gaveta Digital — API
+## Identificação da Equipe
 
-**Disciplina:** Programação para Dispositivos Móveis — UFC | Etapa 1
-**Repositório:** https://github.com/gaveta-digital/gaveta-digital-api
+Disciplina: Programação para Dispositivos Móveis
+Período: 2026.2
+Projeto: Gaveta Digital
+Equipe: [Número da equipe]
 
----
+| Nome completo | Matrícula | Turma | Turno | GitHub |
+|---|---|---|---|---|
+| Cauan Ricardo Ribeiro | 569566 | [Turma] | Tarde | [@cauanrricardo] |
+| Clidenor Lopes Martins Filho | [Matrícula] | [Turma] | Noite | [@ClidenorFilho] |
+| João Vitor Rodrigues | 567428 | [Turma] | Noite | [@Joao-Vitor-Rd] |
+| Maria José Pinho Barros | 556324 | [Turma] | Noite | [@dev-mariab] |
+| Radlei Eugenio Doroth | 568379 | [Turma] | Tarde | [@radleidoroth] |
 
-## Sobre o projeto
+### Descrição do projeto
 
-Uma API REST para automatizar a organização de comprovantes financeiros de MEIs e autônomos: o usuário envia a foto de um recibo/nota fiscal, e uma IA (Google Gemini) extrai automaticamente estabelecimento, data, valor e categoria, salvando tudo organizado e pronto para consulta ou envio ao contador.
+MEIs e profissionais autônomos acumulam recibos, notas fiscais e boletos ao longo do mês: papel na gaveta, fotos soltas no celular, notas perdidas no e-mail. Na hora do imposto de renda ou de mandar tudo ao contador, precisam digitar cada gasto numa planilha, e muitas despesas acabam esquecidas ou mal categorizadas.
 
-Veja a proposta completa em [`docs/VISAO-GERAL-PROJETO.md`](docs/VISAO-GERAL-PROJETO.md).
+O **Gaveta Digital** é um aplicativo em que o usuário fotografa o comprovante e uma IA (Google Gemini) preenche estabelecimento, data, valor e categoria. O usuário confere e corrige os dados numa tela de revisão, e tudo fica salvo num histórico organizado, com busca, filtro por categoria e resumo dos gastos do mês.
 
----
+**Caso de uso:** João, mecânico autônomo, compra uma câmara de ar e um kit de remendo numa loja de pneus. Ainda no balcão, fotografa o recibo no app. Em poucos segundos aparecem o nome da loja, a data, R$ 150,50 e a categoria "Material". Ele confirma e salva. No fim do mês, abre o resumo e vê quanto gastou com material, sem procurar papel nenhum.
 
-## Equipe
+**Funcionalidades:**
+- Cadastro e login, com o usuário mantido conectado ao reabrir o app
+- Captura do comprovante pela câmera ou galeria, com extração automática dos dados pela IA
+- Revisão e correção dos dados antes de salvar, com campo de observações
+- Lista de comprovantes com resumo do mês, busca e filtro por categoria
+- Resumo dos gastos do mês por categoria
+- Detalhe do comprovante com a foto original, edição e exclusão
+- Gerenciamento das categorias próprias de cada usuário
+- Perfil com edição do nome
 
-| Integrante | Principais responsabilidades |
-|---|---|
-| João Vitor Rodrigues | Arquitetura, banco de dados, models |
-| Maria José Pinho Barros | CRUD de Categoria, protótipo do app |
-| Radlei Eugenio Doroth | CRUD de Comprovante |
-| Clidenor Lopes Martins Filho | CRUD de Usuário e autenticação (JWT) |
-| Cauan Ricardo Ribeiro | Camada de Repository, integração com IA (Gemini), Docker, pipeline CI, Swagger, testes de integração |
+Documentação completa: [`docs/VISAO-GERAL-PROJETO.md`](docs/VISAO-GERAL-PROJETO.md) e [`docs/REGRAS-DE-NEGOCIO.md`](docs/REGRAS-DE-NEGOCIO.md).
 
----
+### API REST
 
-## Protótipo da Aplicação Mobile
+**Tecnologias:** Node.js 22, Express, Sequelize + SQLite, JWT e bcrypt, Zod (validação), Multer (upload de imagens), Google Gemini API, Swagger, Jest + Supertest, Docker / Docker Compose e GitHub Actions.
 
-**Link:** [Figma — Gaveta Digital](https://www.figma.com/design/EK3DWo4GZUesKuCitrI8Vq/GavetaDigital?node-id=0-1&t=3MUQBYzFg52aRHla-1)
+**Execução:**
 
-Protótipo elaborado por Maria Barros.
-
-5 telas: Login, Lista de Comprovantes, Câmera, Processamento (IA), Revisão do Recibo.
-
-Detalhes sobre o que está implementado na API vs. o que é visão de produto: [`docs/PROTOTIPO.md`](docs/PROTOTIPO.md).
-
----
-
-## Tecnologias
-
-- Node.js 22 + Express
-- Sequelize + SQLite
-- JWT (autenticação) e bcrypt (hash de senha)
-- Zod (validação de dados)
-- Google Gemini API (extração de dados via IA)
-- Multer (upload de imagens)
-- Swagger (documentação interativa da API)
-- Jest + Supertest (testes unitários e de integração)
-- Docker / Docker Compose
-- GitHub Actions (CI)
-
----
-
-## Como rodar o projeto
-
-### Configuração (necessária nos dois modos)
-
-Crie o arquivo `.env` a partir do exemplo:
-
-```bash
-cp .env.example .env
-```
-
-No Windows PowerShell: `Copy-Item .env.example .env`
-
-Depois edite o `.env`:
+1. Entre na pasta da API (`cd api`; todos os comandos abaixo rodam de dentro dela) e crie o `.env` a partir do exemplo: `cp .env.example .env` (no PowerShell: `Copy-Item .env.example .env`).
+2. Preencha as variáveis:
 
 | Variável | Descrição |
 |---|---|
@@ -74,28 +50,28 @@ Depois edite o `.env`:
 | `JWT_SECRET` | Chave usada para assinar os tokens de login |
 | `GEMINI_API_KEY` | Chave da API do Gemini, gerada em https://aistudio.google.com/apikey |
 
-O `.env` não é versionado. Nunca coloque chaves reais no `.env.example`.
-
-### Com Docker (recomendado)
+3. Suba a API, com Docker (recomendado) ou localmente:
 
 ```bash
-docker compose up --build
+docker compose up --build      # com Docker; banco e imagens ficam no volume sqlite-data
+
+npm install                    # localmente
+npm run dev                    # com recarregamento automático
 ```
 
-A API sobe em `http://localhost:8080`. O código em `src` é recarregado automaticamente ao ser alterado, e o banco e as imagens ficam no volume `sqlite-data`. Para parar: `docker compose down` (com `-v` o banco e as imagens também são apagados).
+A API responde em `http://localhost:8080`. Rota de saúde: `/api/teste`. Documentação interativa (Swagger): `/api-docs` — faça login em `POST /login`, copie o `token` e clique em **Authorize**.
 
-### Localmente
+4. Testes: `npm test`. Os testes de integração usam banco e uploads temporários, e o Gemini é simulado. Estratégia e cenários em [`docs/TEST-PLAN.md`](docs/TEST-PLAN.md).
 
-```bash
-npm install
-npm run dev    # desenvolvimento, com recarregamento automático
-npm start      # sem recarregamento
-```
+**Entidades:**
 
-### Verificando se está no ar
+| Entidade | Atributos principais |
+|---|---|
+| Usuario | id, nome, email, senha (somente hash) |
+| Categoria | id, nome, usuarioId |
+| Comprovante | id, estabelecimento, data, valor, observacoes, imagemUrl (referência interna), usuarioId, categoriaId |
 
-- Rota de saúde: `http://localhost:8080/api/teste`
-- **Documentação interativa (Swagger):** `http://localhost:8080/api-docs`
+**Endpoints:** todas as rotas usam o prefixo `/api`. As marcadas com 🔒 exigem `Authorization: Bearer <token>`.
 
 No Swagger, faça login em `POST /login`, copie o `token` e clique em **Authorize** para testar as rotas protegidas.
 
@@ -158,55 +134,99 @@ Todas as rotas têm o prefixo `/api`. As marcadas com 🔒 exigem o header `Auth
 
 | Método | Rota | Descrição |
 |---|---|---|
-| POST | `/usuarios` | Cadastra usuário (cria as 6 categorias iniciais) |
+| POST | `/usuarios` | Cadastra usuário e cria as 6 categorias iniciais |
 | POST | `/login` | Autentica e retorna o token JWT |
 | GET | `/categorias` 🔒 | Lista as categorias do usuário |
 | POST | `/categorias` 🔒 | Cria categoria |
 | PUT | `/categorias/:id` 🔒 | Renomeia categoria (exceto "Outros") |
 | DELETE | `/categorias/:id` 🔒 | Exclui categoria sem comprovantes (exceto "Outros") |
-| POST | `/comprovantes` 🔒 | Envia a foto (`multipart/form-data`, campo `imagem`) e a IA extrai os dados |
+| POST | `/comprovantes` 🔒 | Envia a foto (`multipart/form-data`, campo `imagem`); a IA extrai os dados e o comprovante é salvo |
 | GET | `/comprovantes` 🔒 | Lista os comprovantes do usuário (`pagina`, `limite`) |
 | GET | `/comprovantes/:id` 🔒 | Detalha um comprovante |
-| PATCH | `/comprovantes/:id` 🔒 | Edita parcialmente o comprovante (só os campos enviados) |
-| DELETE | `/comprovantes/:id` 🔒 | Exclui o comprovante |
-| GET | `/comprovantes/:id/imagem` 🔒 | Retorna a imagem do comprovante |
+| PATCH | `/comprovantes/:id` 🔒 | Edita só os campos enviados |
+| DELETE | `/comprovantes/:id` 🔒 | Exclui o comprovante e sua imagem |
+| GET | `/comprovantes/:id/imagem` 🔒 | Retorna a imagem, só para o dono |
 
----
+Exemplo — login:
 
-## Funcionalidades implementadas
+```http
+POST /api/login
+Content-Type: application/json
 
-- Cadastro e login de usuário (JWT)
-- CRUD completo de Categoria, com categorias próprias de cada usuário
-- CRUD completo de Comprovante, com campo de observações
-- Upload de imagem de comprovante (JPEG, PNG ou WebP, até 10 MiB) com extração automática de dados via IA
-- Categoria escolhida dinamicamente entre as categorias do próprio usuário (fallback: "Outros")
-- Consulta protegida da imagem: só o dono do comprovante acessa o arquivo
-- Tratamento de indisponibilidade do Gemini: tentativas automáticas em outros modelos, com limite de tempo por tentativa
-- Validação de dados e tratamento de erros padronizado
-- Persistência em banco de dados
-- Documentação interativa com Swagger
+{ "email": "joao@email.com", "senha": "Senha123" }
+```
 
-## Cenários cobertos pelos testes
+```json
+200 OK
+{
+  "status": "sucesso",
+  "data": {
+    "usuario": { "id": "…", "nome": "João", "email": "joao@email.com" },
+    "token": "eyJhbGciOi…"
+  }
+}
+```
 
-- Cadastro e login (sucesso, e-mail duplicado, credenciais inválidas)
-- CRUD de Categoria e Comprovante (sucesso, acesso negado a dados de outro usuário, recurso não encontrado)
-- Extração de dados via IA: imagem completa, imagem com campo ilegível, imagem totalmente ilegível, categoria não identificada
-- Falha de conexão com o serviço de IA (tratada sem quebrar a API)
-- Regras de dado: valor negativo rejeitado, data futura rejeitada, campos nulos aceitos sem perder o registro
+Exemplo — envio de comprovante (`POST /api/comprovantes`, `multipart/form-data` com o campo `imagem`):
 
----
+```json
+201 Created
+{
+  "id": "…",
+  "estabelecimento": "Barrichello Pneus Senna",
+  "data": "2026-09-30",
+  "valor": 150.5,
+  "observacoes": null,
+  "categoriaId": "…"
+}
+```
 
-## Integração contínua
+Exemplo — edição parcial (`PATCH /api/comprovantes/:id`):
 
-O GitHub Actions roda os testes em cada push e pull request. A configuração das proteções de `develop` e `main` e o roteiro do PR de validação estão em [`docs/CI.md`](docs/CI.md).
+```json
+{ "valor": 152.9, "observacoes": "Peças do carro do cliente Pedro" }
+```
 
----
+**Validações:**
 
-## Documentação completa
+| Situação | Resposta |
+|---|---|
+| Campo ausente, tipo errado ou fora do limite | `400` |
+| Sem token ou token inválido | `401` |
+| Acesso a dado de outro usuário | `403` |
+| Recurso inexistente | `404` |
+| E-mail ou categoria duplicados | `409` |
+| Imagem acima de 10 MiB | `413` |
+| Formato de imagem não suportado (aceita JPEG, PNG e WebP) | `415` |
+| Imagem ilegível pela IA (o comprovante não é criado) | `422` |
+| Gemini indisponível após tentar outros modelos | `503` |
 
-- [`docs/VISAO-GERAL-PROJETO.md`](docs/VISAO-GERAL-PROJETO.md) — problema, solução, arquitetura, entidades e rotas
-- [`docs/REGRAS-DE-NEGOCIO.md`](docs/REGRAS-DE-NEGOCIO.md) — validações, limites de campo e comportamento da IA
-- [`docs/TEST-PLAN.md`](docs/TEST-PLAN.md) — estratégia de testes unitários e de integração
-- [`docs/PROTOTIPO.md`](docs/PROTOTIPO.md) — protótipo e escopo do app
-- [`docs/CI.md`](docs/CI.md) — integração contínua e proteção de branches
-- [`docs/CONTRIBUTING.md`](docs/CONTRIBUTING.md) — fluxo de branches e padrão de commits
+Erros seguem o formato `{ "erro": "mensagem para o usuário" }`. Regras completas em [`docs/REGRAS-DE-NEGOCIO.md`](docs/REGRAS-DE-NEGOCIO.md).
+
+**Persistência:** banco SQLite gerenciado pelo Sequelize, no arquivo definido em `DB_STORAGE`. As imagens ficam num armazenamento privado da API, acessível só pela rota autenticada. No Docker, banco e imagens ficam no volume `sqlite-data`.
+
+### Aplicação mobile
+
+**Protótipo:** [Figma — Gaveta Digital](https://www.figma.com/design/EK3DWo4GZUesKuCitrI8Vq/GavetaDigital?node-id=0-1&t=3MUQBYzFg52aRHla-1) — telas, navegação e decisões em [`docs/PROTOTIPO.md`](docs/PROTOTIPO.md).
+
+**Tecnologias:** Expo SDK 58 (React Native 0.88), JavaScript e Expo Router.
+
+**Situação:** em desenvolvimento na Etapa 2. O escopo das telas está em [`docs/VISAO-GERAL-PROJETO.md`](docs/VISAO-GERAL-PROJETO.md), seção 6.1. As instruções de instalação e execução do app serão adicionadas aqui junto com o código.
+
+### Organização Git
+
+**main:** versão estável e entregável; só recebe merge de `develop`.
+**develop:** integração das funcionalidades em desenvolvimento; recebe os pull requests das branches de tarefa.
+**feature/\*:** uma branch por tarefa, por exemplo `feature/api-uso-ia` ou `feature/mobile-login`. Correções usam `fix/*` e documentação usa `docs/*`.
+
+Fluxo, padrão de commits e pull requests em [`docs/CONTRIBUTING.md`](docs/CONTRIBUTING.md). Integração contínua em [`docs/CI.md`](docs/CI.md).
+
+**Contribuições:**
+
+| Integrante | Etapa 1 (API) | Etapa 2 (App) |
+|---|---|---|
+| Cauan Ricardo Ribeiro | Camada Repository, integração com o Gemini, Docker, CI, Swagger e testes de integração | [a definir] |
+| Clidenor Lopes Martins Filho | Cadastro, login e autenticação (JWT) | [a definir] |
+| João Vitor Rodrigues | Arquitetura, banco de dados e models | [a definir] |
+| Maria José Pinho Barros | CRUD de Categoria e protótipo no Figma | [a definir] |
+| Radlei Eugenio Doroth | CRUD de Comprovante | [a definir] |
