@@ -41,6 +41,22 @@ const ComprovanteController = {
     }
   },
 
+  async resumo(req, res, next) {
+    try {
+      const resumo = await ComprovanteService.resumo(
+        req.usuarioId,
+        req.query || {}
+      );
+
+      return res.status(200).json({
+        status: 'sucesso',
+        data: resumo,
+      });
+    } catch (erro) {
+      return tratarErroConhecido(erro, res, next);
+    }
+  },
+
   async detalhar(req, res, next) {
     try {
       const comprovante = await ComprovanteService.detalhar(

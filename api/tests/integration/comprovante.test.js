@@ -306,4 +306,403 @@ describe('Integração — fluxo completo de Comprovantes', () => {
       expect(resposta.body.data.valor).toBeNull();
     });
   });
+
+  describe('filtro, busca e resumo do mês (Etapa 2)', () => {
+    async function obterCategorias(tokenUsuario) {
+      const resposta = await request(app)
+        .get('/api/categorias')
+        .set('Authorization', `Bearer ${tokenUsuario}`);
+      return resposta.body;
+    }
+
+    async function criarComprovante(tokenUsuario, {
+      estabelecimento = null,
+      data = null,
+      valor = null,
+      categoriaId = null,
+      observacoes,
+    } = {}) {
+      mockGenerateContent.mockResolvedValueOnce(respostaGemini({
+        estabelecimento,
+        data,
+        valor,
+        categoriaId,
+      }));
+
+      const criado = await anexarImagem(
+        request(app).post('/api/comprovantes').set('Authorization', `Bearer ${tokenUsuario}`)
+      );
+
+      if (observacoes !== undefined) {
+        await request(app)
+          .patch(`/api/comprovantes/${criado.body.data.id}`)
+          .set('Authorization', `Bearer ${tokenUsuario}`)
+          .send({ observacoes });
+      }
+
+      return criado.body.data;
+    }
+
+    describe('filtro por categoria e busca', () => {
+      let token;
+      let categoriaMaterial;
+      let categoriaAlimentacao;
+
+      beforeEach(async () => {
+        token = await criarUsuarioEToken(`filtro-busca-${Date.now()}@teste.com`);
+        const categorias = await obterCategorias(token);
+        categoriaMaterial = categorias.find((categoria) => categoria.nome === 'Material');
+        categoriaAlimentacao = categorias.find((categoria) => categoria.nome === 'Alimentação');
+
+        await criarComprovante(token, {
+          estabelecimento: 'Mercado Central',
+          categoriaId: categoriaMaterial.id,
+          observacoes: 'compra de parafusos',
+        });
+        await criarComprovante(token, {
+          estabelecimento: 'Padaria do Bairro',
+          categoriaId: categoriaAlimentacao.id,
+        });
+        await criarComprovante(token, {
+          estabelecimento: 'Outro estabelecimento',
+          categoriaId: categoriaMaterial.id,
+          observacoes: 'nada a ver',
+        });
+      });
+
+      test('filtra por categoriaId retornando apenas comprovantes dela', async () => {
+        const resposta = await request(app)
+          .get('/api/comprovantes')
+          .query({ categoriaId: categoriaAlimentacao.id })
+          .set('Authorization', `Bearer ${token}`);
+
+        expect(resposta.status).toBe(200);
+        expect(resposta.body.data).toHaveLength(1);
+        expect(resposta.body.data[0].estabelecimento).toBe('Padaria do Bairro');
+      });
+
+      test('categoriaId de outro usuário retorna 400', async () => {
+        const outroToken = await criarUsuarioEToken(`outro-usuario-cat-${Date.now()}@teste.com`);
+        const categoriasDoOutro = await obterCategorias(outroToken);
+        const categoriaDoOutro = categoriasDoOutro.find((categoria) => categoria.nome === 'Material');
+
+        const resposta = await request(app)
+          .get('/api/comprovantes')
+          .query({ categoriaId: categoriaDoOutro.id })
+          .set('Authorization', `Bearer ${token}`);
+
+        expect(resposta.status).toBe(400);
+      });
+
+      test('categoriaId inexistente retorna 400', async () => {
+        const resposta = await request(app)
+          .get('/api/comprovantes')
+          .query({ categoriaId: 'id-que-nao-existe' })
+          .set('Authorization', `Bearer ${token}`);
+
+        expect(resposta.status).toBe(400);
+      });
+
+      test.each([
+        ['fora do formato UUID', 'abc'],
+        ['fora do formato UUID', 'id-que-nao-existe'],
+        ['vazio', ''],
+      ])('categoriaId %s ("%s") retorna 400', async (_caso, categoriaId) => {
+        const resposta = await request(app)
+          .get('/api/comprovantes')
+          .query({ categoriaId })
+          .set('Authorization', `Bearer ${token}`);
+
+        expect(resposta.status).toBe(400);
+      });
+
+      test('busca por estabelecimento, sem diferenciar maiúsculas e minúsculas', async () => {
+        const resposta = await request(app)
+          .get('/api/comprovantes')
+          .query({ busca: 'MERCADO' })
+          .set('Authorization', `Bearer ${token}`);
+
+        expect(resposta.status).toBe(200);
+        expect(resposta.body.data).toHaveLength(1);
+        expect(resposta.body.data[0].estabelecimento).toBe('Mercado Central');
+      });
+
+      test('busca por observações', async () => {
+        const resposta = await request(app)
+          .get('/api/comprovantes')
+          .query({ busca: 'parafusos' })
+          .set('Authorization', `Bearer ${token}`);
+
+        expect(resposta.status).toBe(200);
+        expect(resposta.body.data).toHaveLength(1);
+        expect(resposta.body.data[0].estabelecimento).toBe('Mercado Central');
+      });
+
+      test('busca sem resultado retorna lista vazia', async () => {
+        const resposta = await request(app)
+          .get('/api/comprovantes')
+          .query({ busca: 'inexistente-xyz' })
+          .set('Authorization', `Bearer ${token}`);
+
+        expect(resposta.status).toBe(200);
+        expect(resposta.body.data).toEqual([]);
+      });
+
+      test('busca com mais de 100 caracteres retorna 400', async () => {
+        const resposta = await request(app)
+          .get('/api/comprovantes')
+          .query({ busca: 'A'.repeat(101) })
+          .set('Authorization', `Bearer ${token}`);
+
+        expect(resposta.status).toBe(400);
+      });
+
+      test('combina categoriaId, busca e paginação', async () => {
+        const resposta = await request(app)
+          .get('/api/comprovantes')
+          .query({
+            categoriaId: categoriaMaterial.id,
+            busca: 'estabelecimento',
+            pagina: 1,
+            limite: 1,
+          })
+          .set('Authorization', `Bearer ${token}`);
+
+        expect(resposta.status).toBe(200);
+        expect(resposta.body.data).toHaveLength(1);
+        expect(resposta.body.data[0].estabelecimento).toBe('Outro estabelecimento');
+      });
+
+      test('busca escapa % para não funcionar como wildcard, casando só o caractere literal', async () => {
+        await criarComprovante(token, {
+          estabelecimento: 'Desconto 50% Off',
+          categoriaId: categoriaMaterial.id,
+        });
+
+        const resposta = await request(app)
+          .get('/api/comprovantes')
+          .query({ busca: '%' })
+          .set('Authorization', `Bearer ${token}`);
+
+        expect(resposta.status).toBe(200);
+        expect(resposta.body.data).toHaveLength(1);
+        expect(resposta.body.data[0].estabelecimento).toBe('Desconto 50% Off');
+      });
+
+      test('busca escapa _ para não funcionar como wildcard, casando só o caractere literal', async () => {
+        await criarComprovante(token, {
+          estabelecimento: 'Loja_Especial',
+          categoriaId: categoriaMaterial.id,
+        });
+
+        const resposta = await request(app)
+          .get('/api/comprovantes')
+          .query({ busca: '_' })
+          .set('Authorization', `Bearer ${token}`);
+
+        expect(resposta.status).toBe(200);
+        expect(resposta.body.data).toHaveLength(1);
+        expect(resposta.body.data[0].estabelecimento).toBe('Loja_Especial');
+      });
+
+      test('filtro e busca são isolados por usuário', async () => {
+        const outroToken = await criarUsuarioEToken(`isolamento-busca-${Date.now()}@teste.com`);
+
+        const resposta = await request(app)
+          .get('/api/comprovantes')
+          .query({ busca: 'Mercado' })
+          .set('Authorization', `Bearer ${outroToken}`);
+
+        expect(resposta.status).toBe(200);
+        expect(resposta.body.data).toEqual([]);
+      });
+    });
+
+    describe('resumo do mês', () => {
+      let token;
+      let categoriaMaterial;
+      let categoriaAlimentacao;
+
+      beforeEach(async () => {
+        token = await criarUsuarioEToken(`resumo-${Date.now()}@teste.com`);
+        const categorias = await obterCategorias(token);
+        categoriaMaterial = categorias.find((categoria) => categoria.nome === 'Material');
+        categoriaAlimentacao = categorias.find((categoria) => categoria.nome === 'Alimentação');
+      });
+
+      test('soma total e quantidade do mês, agrupando por categoria', async () => {
+        const comp1 = await criarComprovante(token, { categoriaId: categoriaMaterial.id });
+        await request(app)
+          .patch(`/api/comprovantes/${comp1.id}`)
+          .set('Authorization', `Bearer ${token}`)
+          .send({ valor: 100 });
+
+        const comp2 = await criarComprovante(token, { categoriaId: categoriaAlimentacao.id });
+        await request(app)
+          .patch(`/api/comprovantes/${comp2.id}`)
+          .set('Authorization', `Bearer ${token}`)
+          .send({ valor: 50.5 });
+
+        const resposta = await request(app)
+          .get('/api/comprovantes/resumo')
+          .set('Authorization', `Bearer ${token}`);
+
+        expect(resposta.status).toBe(200);
+        expect(resposta.body.data.total).toBe(150.5);
+        expect(resposta.body.data.quantidade).toBe(2);
+        expect(resposta.body.data.porCategoria).toEqual([
+          { categoriaId: categoriaMaterial.id, nome: 'Material', total: 100, quantidade: 1 },
+          { categoriaId: categoriaAlimentacao.id, nome: 'Alimentação', total: 50.5, quantidade: 1 },
+        ]);
+      });
+
+      test('valor null conta na quantidade mas não soma no total', async () => {
+        await criarComprovante(token, { categoriaId: categoriaMaterial.id });
+
+        const resposta = await request(app)
+          .get('/api/comprovantes/resumo')
+          .set('Authorization', `Bearer ${token}`);
+
+        expect(resposta.body.data.total).toBe(0);
+        expect(resposta.body.data.quantidade).toBe(1);
+      });
+
+      test('comprovante sem data entra pelo mês de cadastro', async () => {
+        await criarComprovante(token, { categoriaId: categoriaMaterial.id, valor: 20 });
+
+        const resposta = await request(app)
+          .get('/api/comprovantes/resumo')
+          .set('Authorization', `Bearer ${token}`);
+
+        expect(resposta.body.data.quantidade).toBe(1);
+        expect(resposta.body.data.total).toBe(20);
+      });
+
+      test('comprovante sem data com createdAt na borda do fuso entra no mês de Fortaleza, não no mês UTC', async () => {
+        const comprovante = await criarComprovante(token, { categoriaId: categoriaMaterial.id, valor: 20 });
+
+        // 2026-12-01T02:30:00Z é 2026-11-30 23:30 em America/Fortaleza (UTC-3)
+        await Comprovante.update(
+          { createdAt: new Date('2026-12-01T02:30:00.000Z') },
+          { where: { id: comprovante.id }, silent: true }
+        );
+
+        const respostaNovembro = await request(app)
+          .get('/api/comprovantes/resumo')
+          .query({ mes: '2026-11' })
+          .set('Authorization', `Bearer ${token}`);
+
+        expect(respostaNovembro.body.data.quantidade).toBe(1);
+        expect(respostaNovembro.body.data.total).toBe(20);
+
+        // 2026-11-01T02:30:00Z é 2026-10-31 23:30 em America/Fortaleza (UTC-3)
+        await Comprovante.update(
+          { createdAt: new Date('2026-11-01T02:30:00.000Z') },
+          { where: { id: comprovante.id }, silent: true }
+        );
+
+        const respostaOutubro = await request(app)
+          .get('/api/comprovantes/resumo')
+          .query({ mes: '2026-10' })
+          .set('Authorization', `Bearer ${token}`);
+
+        expect(respostaOutubro.body.data.quantidade).toBe(1);
+        expect(respostaOutubro.body.data.total).toBe(20);
+      });
+
+      test('mês sem comprovantes retorna zeros e porCategoria vazia', async () => {
+        await criarComprovante(token, { categoriaId: categoriaMaterial.id, valor: 20 });
+
+        const resposta = await request(app)
+          .get('/api/comprovantes/resumo')
+          .query({ mes: '2020-01' })
+          .set('Authorization', `Bearer ${token}`);
+
+        expect(resposta.status).toBe(200);
+        expect(resposta.body.data).toEqual({
+          mes: '2020-01',
+          total: 0,
+          quantidade: 0,
+          porCategoria: [],
+        });
+      });
+
+      test('sem o parâmetro mes usa o mês atual', async () => {
+        const resposta = await request(app)
+          .get('/api/comprovantes/resumo')
+          .set('Authorization', `Bearer ${token}`);
+
+        expect(resposta.status).toBe(200);
+        expect(resposta.body.data.mes).toEqual(expect.stringMatching(/^\d{4}-\d{2}$/));
+      });
+
+      test('formato de mes inválido retorna 400', async () => {
+        const resposta = await request(app)
+          .get('/api/comprovantes/resumo')
+          .query({ mes: '2026/09' })
+          .set('Authorization', `Bearer ${token}`);
+
+        expect(resposta.status).toBe(400);
+      });
+
+      test('mês futuro retorna 400', async () => {
+        const resposta = await request(app)
+          .get('/api/comprovantes/resumo')
+          .query({ mes: '2999-01' })
+          .set('Authorization', `Bearer ${token}`);
+
+        expect(resposta.status).toBe(400);
+      });
+
+      test('resumo exige autenticação', async () => {
+        const resposta = await request(app).get('/api/comprovantes/resumo');
+        expect(resposta.status).toBe(401);
+      });
+
+      test('GET /comprovantes/resumo não cai na rota /comprovantes/:id', async () => {
+        const resposta = await request(app)
+          .get('/api/comprovantes/resumo')
+          .set('Authorization', `Bearer ${token}`);
+
+        // se a rota de :id tratasse "resumo" como id, a resposta seria 404
+        // (comprovante não encontrado) em vez do formato do resumo do mês.
+        expect(resposta.status).toBe(200);
+        expect(resposta.body.data).toHaveProperty('porCategoria');
+        expect(resposta.body.data).not.toHaveProperty('estabelecimento');
+      });
+    });
+
+    describe('limite de observações (500 caracteres)', () => {
+      let token;
+      let comprovanteId;
+
+      beforeEach(async () => {
+        token = await criarUsuarioEToken(`observacoes-limite-${Date.now()}@teste.com`);
+        const criado = await criarComprovante(token, {});
+        comprovanteId = criado.id;
+      });
+
+      test('observações com 501 caracteres no PATCH retorna 400 e não altera o registro', async () => {
+        const resposta = await request(app)
+          .patch(`/api/comprovantes/${comprovanteId}`)
+          .set('Authorization', `Bearer ${token}`)
+          .send({ observacoes: 'A'.repeat(501) });
+
+        expect(resposta.status).toBe(400);
+
+        const inalterado = await Comprovante.findByPk(comprovanteId);
+        expect(inalterado.observacoes).toBeNull();
+      });
+
+      test('observações com exatamente 500 caracteres no PATCH é aceito', async () => {
+        const resposta = await request(app)
+          .patch(`/api/comprovantes/${comprovanteId}`)
+          .set('Authorization', `Bearer ${token}`)
+          .send({ observacoes: 'A'.repeat(500) });
+
+        expect(resposta.status).toBe(200);
+        expect(resposta.body.data.observacoes).toHaveLength(500);
+      });
+    });
+  });
 });
