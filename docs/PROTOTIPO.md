@@ -1,6 +1,6 @@
 # Protótipo — Gaveta Digital
 
-**Link do protótipo:** https://www.figma.com/design/EK3DWo4GZUesKuCitrI8Vq/GavetaDigital?node-id=0-1&t=3MUQBYzFg52aRHla-1  
+**Link do protótipo:** (https://www.figma.com/design/EK3DWo4GZUesKuCitrI8Vq/GavetaDigital?node-id=0-1&t=AQ3Nxb4Ze1eGb8HJ-1)  
 **Ferramenta:** Figma — protótipo elaborado por Maria Barros.
 
 ---
