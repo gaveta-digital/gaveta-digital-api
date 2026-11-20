@@ -25,7 +25,7 @@ export default function Cadastro() {
 
     try {
       await authService.cadastrar(dados);
-      router.replace('/auth/login');
+      router.replace('/login');
     } catch (erroCadastro) {
       setErro(mensagemDeErro(erroCadastro));
     } finally {

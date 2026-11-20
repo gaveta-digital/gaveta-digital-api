@@ -22,8 +22,16 @@ export function AuthProvider({ children }) {
         const [tokenSalvo, usuarioSalvo] = await Promise.all([
           SecureStore.getItemAsync(TOKEN_KEY), SecureStore.getItemAsync(USER_KEY)
         ]);
-        if (tokenSalvo) setToken(tokenSalvo);
-        if (usuarioSalvo) setUsuario(JSON.parse(usuarioSalvo));
+        if (tokenSalvo && usuarioSalvo) {
+          setToken(tokenSalvo);
+          setUsuario(JSON.parse(usuarioSalvo));
+        }
+      } catch {
+        // Sessão ilegível ou corrompida: o usuário entra de novo.
+        await Promise.all([
+          SecureStore.deleteItemAsync(TOKEN_KEY),
+          SecureStore.deleteItemAsync(USER_KEY),
+        ]).catch(() => {});
       } finally { setCarregando(false); }
     }
     restaurar();

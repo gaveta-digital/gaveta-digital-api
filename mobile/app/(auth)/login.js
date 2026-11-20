@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Text, View } from 'react-native';
-import { Link, router } from 'expo-router';
+import { Link, router, useLocalSearchParams } from 'expo-router';
 import { Botao } from '../../src/components/Botao';
 import { CampoTexto } from '../../src/components/CampoTexto';
 import { Mensagem } from '../../src/components/Mensagem';
@@ -9,6 +9,7 @@ import { mensagemDeErro } from '../../src/utils/erros';
 
 export default function Login() {
   const { entrar } = useAuth();
+  const { sessaoExpirada } = useLocalSearchParams();
   const [email, setEmail] = useState('');
   const [senha, setSenha] = useState('');
   const [erro, setErro] = useState('');
@@ -20,7 +21,7 @@ export default function Login() {
 
     try {
       await entrar(email, senha);
-      router.replace('/tabs');
+      router.replace('/');
     } catch (erroLogin) {
       setErro(mensagemDeErro(erroLogin));
     } finally {
@@ -46,10 +47,13 @@ export default function Login() {
         onChangeText={setSenha}
         secureTextEntry
       />
+      {sessaoExpirada && !erro ? (
+        <Mensagem texto="Sua sessão expirou. Entre novamente." tipo="erro" />
+      ) : null}
       {erro ? <Mensagem texto={erro} tipo="erro" /> : null}
       <Botao titulo="Entrar" onPress={enviar} carregando={carregando} />
       <Link
-        href="/auth/cadastro"
+        href="/cadastro"
         style={{ marginTop: 20, textAlign: 'center' }}
       >
         Ainda não tenho cadastro

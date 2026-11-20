@@ -73,66 +73,7 @@ A API responde em `http://localhost:8080`. Rota de saúde: `/api/teste`. Documen
 
 **Endpoints:** todas as rotas usam o prefixo `/api`. As marcadas com 🔒 exigem `Authorization: Bearer <token>`.
 
-No Swagger, faça login em `POST /login`, copie o `token` e clique em **Authorize** para testar as rotas protegidas.
-
-### Rodando os testes
-
-```bash
-npm test
-```
-
-Os testes de integração usam um banco e uma pasta de uploads temporários, e o Gemini é simulado: nenhuma chamada real é feita e nada do seu ambiente de desenvolvimento é alterado.
-
-Para rodar os testes em um contêiner isolado:
-
-```bash
-docker compose run --rm -e NODE_ENV=test -e DB_STORAGE=/tmp/gaveta-digital-test.sqlite api npm test -- --ci --runInBand
-```
-
-## Aplicação mobile
-
-O aplicativo fica em [`mobile/`](mobile/) e usa Expo SDK 58 em JavaScript.
-
-### Instalação
-
-No Windows PowerShell:
-
-```bash
-cd mobile
-copy .env.example .env
-npm install
-npx expo start
-```
-
-Descubra o IPv4 do computador com `ipconfig`. O celular deve estar na mesma rede Wi-Fi e o `.env` deve apontar para:
-
-```env
-EXPO_PUBLIC_API_URL=http://SEU-IP-DA-LAN:8080
-```
-
-Escaneie o QR Code no Expo Go. Para iPhone ou Android, a API e o celular devem conseguir acessar o IP da rede local.
-
-### API e aplicativo mobile juntos com Docker
-
-Preencha `GEMINI_API_KEY` no `.env`, mantenha o computador na mesma rede Wi-Fi do celular e execute na raiz do projeto:
-
-```bash
-powershell -ExecutionPolicy Bypass -File .\scripts\start-docker.ps1
-```
-
-- API: `http://IP-DETECTADO-AUTOMATICAMENTE:8080`
-- Expo: `http://IP-DETECTADO-AUTOMATICAMENTE:8081`
-- Escaneie o QR code exibido no terminal com o Expo Go.
-
-O script detecta o IPv4 ativo e atualiza `mobile/.env` automaticamente.
-
----
-
-## Rotas da API
-
-Todas as rotas têm o prefixo `/api`. As marcadas com 🔒 exigem o header `Authorization: Bearer <token>`.
-
-| Método | Rota | Descrição |
+| Método | Rota | Finalidade |
 |---|---|---|
 | POST | `/usuarios` | Cadastra usuário e cria as 6 categorias iniciais |
 | POST | `/login` | Autentica e retorna o token JWT |
@@ -211,7 +152,36 @@ Erros seguem o formato `{ "erro": "mensagem para o usuário" }`. Regras completa
 
 **Tecnologias:** Expo SDK 58 (React Native 0.88), JavaScript e Expo Router.
 
-**Situação:** em desenvolvimento na Etapa 2. O escopo das telas está em [`docs/VISAO-GERAL-PROJETO.md`](docs/VISAO-GERAL-PROJETO.md), seção 6.1. As instruções de instalação e execução do app serão adicionadas aqui junto com o código.
+**Situação:** em desenvolvimento na Etapa 2. O escopo das telas está em [`docs/VISAO-GERAL-PROJETO.md`](docs/VISAO-GERAL-PROJETO.md), seção 6.1. A base do app (navegação, sessão, cliente da API, componentes e utilitários) está pronta; as telas são preenchidas por tarefa.
+
+**Execução:**
+
+1. Suba a API (veja "Execução" em API REST) e descubra o IPv4 do computador na rede local (`ipconfig` no Windows, `ip addr` no Linux, `ipconfig getifaddr en0` no macOS). O celular precisa estar na mesma rede Wi-Fi.
+2. Entre na pasta do app, crie o `.env` e aponte para a API:
+
+```bash
+cd mobile
+cp .env.example .env          # no PowerShell: Copy-Item .env.example .env
+# edite o .env: EXPO_PUBLIC_API_URL=http://SEU-IPV4:8080
+npm install
+npx expo start
+```
+
+3. Escaneie o QR Code com o **Expo Go** (SDK 58) no iPhone ou no Android.
+
+**API e app juntos com Docker:** na raiz do repositório, com `api/.env` preenchido (`GEMINI_API_KEY` e `JWT_SECRET`):
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\start-docker.ps1   # Windows: detecta o IPv4 e sobe tudo
+```
+
+```bash
+HOST_IP=SEU-IPV4 docker compose up --build                            # Linux/macOS
+```
+
+A API fica em `http://SEU-IPV4:8080` e o Expo em `http://SEU-IPV4:8081`; escaneie o QR Code exibido no terminal. O `compose.yml` da raiz inclui o `api/compose.yml`, que continua servindo para subir só a API.
+
+**Estrutura:** `app/` (telas e rotas do Expo Router), `src/services/` (chamadas à API), `src/context/` (sessão), `src/components/`, `src/utils/` (validações e formatação) e `src/theme/`. Detalhes em [`docs/CONTRIBUTING.md`](docs/CONTRIBUTING.md), seção 0.
 
 ### Organização Git
 
