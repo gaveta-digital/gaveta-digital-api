@@ -63,6 +63,10 @@ export function iniciaisNome(nome) {
     .split(/\s+/)
     .filter(Boolean);
 
+  if (partes.length === 0) {
+    return '?';
+  }
+
   return partes
     .slice(0, 2)
     .map((parte) => parte[0].toUpperCase())

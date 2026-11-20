@@ -6,6 +6,7 @@ export const comprovanteService = {
     return api.post('/comprovantes', dados, { headers: { 'Content-Type': 'multipart/form-data' }, enviarComprovante: true });
   },
   listar: (params) => api.get('/comprovantes', { params }),
+  resumo: (params) => api.get('/comprovantes/resumo', { params }),
   detalhar: (id) => api.get(`/comprovantes/${id}`),
   atualizar: (id, dados) => api.patch(`/comprovantes/${id}`, dados),
   remover: (id) => api.delete(`/comprovantes/${id}`),
