@@ -71,14 +71,60 @@ router.use('/comprovantes', autenticacao);
  *           minimum: 1
  *           maximum: 100
  *           default: 20
+ *       - in: query
+ *         name: categoriaId
+ *         description: Restringe a lista a uma categoria do próprio usuário
+ *         schema:
+ *           type: string
+ *       - in: query
+ *         name: busca
+ *         description: >
+ *           Procura o texto em estabelecimento ou observações, sem
+ *           diferenciar maiúsculas e minúsculas (máximo 100 caracteres)
+ *         schema:
+ *           type: string
+ *           maxLength: 100
  *     responses:
  *       200:
  *         description: Lista de comprovantes
+ *       400:
+ *         description: categoriaId inválido/de outro usuário, ou busca acima de 100 caracteres
  *       401:
  *         description: Não autenticado
  */
 router.post('/comprovantes', uploadImagem, ComprovanteController.criar);
 router.get('/comprovantes', ComprovanteController.listar);
+
+/**
+ * @swagger
+ * /comprovantes/resumo:
+ *   get:
+ *     summary: Resumo do mês dos comprovantes do usuário
+ *     description: >
+ *       Soma os valores e conta os comprovantes do usuário autenticado no
+ *       mês informado, agrupando também por categoria. O mês do comprovante
+ *       é o de sua data; sem data, usa a data de cadastro, no fuso
+ *       America/Fortaleza.
+ *     tags:
+ *       - Comprovantes
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: mes
+ *         description: Mês no formato YYYY-MM. Sem este parâmetro, usa o mês atual.
+ *         schema:
+ *           type: string
+ *           pattern: '^\d{4}-\d{2}$'
+ *     responses:
+ *       200:
+ *         description: Resumo do mês
+ *       400:
+ *         description: Formato de mês inválido ou mês futuro
+ *       401:
+ *         description: Não autenticado
+ */
+router.get('/comprovantes/resumo', ComprovanteController.resumo);
 
 /**
  * @swagger
@@ -136,6 +182,7 @@ router.get('/comprovantes', ComprovanteController.listar);
  *               observacoes:
  *                 type: string
  *                 nullable: true
+ *                 maxLength: 500
  *     responses:
  *       200:
  *         description: Comprovante atualizado

@@ -7,6 +7,7 @@ jest.mock('../../models', () => ({
   Categoria: {
     findByPk: jest.fn(),
     findAll: jest.fn(),
+    findOne: jest.fn(),
   },
 }));
 
@@ -17,6 +18,21 @@ const { Comprovante, Categoria } = require('../../models');
 const geminiService = require('../geminiService');
 const ArmazenamentoService = require('../ArmazenamentoService');
 const ComprovanteService = require('../ComprovanteService');
+
+function dataDeHoje() {
+  const partes = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/Fortaleza',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(new Date());
+  const obter = (tipo) => partes.find((parte) => parte.type === tipo).value;
+  return `${obter('year')}-${obter('month')}-${obter('day')}`;
+}
+
+function mesAtual() {
+  return dataDeHoje().slice(0, 7);
+}
 
 describe('ComprovanteService', () => {
   beforeEach(() => {
@@ -146,6 +162,35 @@ describe('ComprovanteService', () => {
       message: 'Observações deve ser uma string ou null.',
     });
     expect(Comprovante.create).not.toHaveBeenCalled();
+  });
+
+  test('criar rejeita observacoes com 501 caracteres com 400', async () => {
+    await expect(
+      ComprovanteService.criar('usuario-1', {
+        categoriaId: 'categoria-1',
+        imagemUrl: '/interno/comprovante.jpg',
+        observacoes: 'A'.repeat(501),
+      })
+    ).rejects.toMatchObject({
+      statusCode: 400,
+      message: 'Observações deve ter no máximo 500 caracteres.',
+    });
+    expect(Comprovante.create).not.toHaveBeenCalled();
+  });
+
+  test('criar aceita observacoes com exatamente 500 caracteres', async () => {
+    Categoria.findByPk.mockResolvedValueOnce({ id: 'categoria-1' });
+    Comprovante.create.mockResolvedValueOnce({ id: 'comprovante-1' });
+
+    await ComprovanteService.criar('usuario-1', {
+      categoriaId: 'categoria-1',
+      imagemUrl: '/interno/comprovante.jpg',
+      observacoes: 'A'.repeat(500),
+    });
+
+    expect(Comprovante.create).toHaveBeenCalledWith(
+      expect.objectContaining({ observacoes: 'A'.repeat(500) })
+    );
   });
 
   test.each([
@@ -480,6 +525,282 @@ describe('ComprovanteService', () => {
     ]);
   });
 
+  const CATEGORIA_ID_UUID = '11111111-1111-4111-8111-111111111111';
+  const CATEGORIA_ID_UUID_OUTRO = '22222222-2222-4222-8222-222222222222';
+
+  test('listar aplica categoriaId, busca e paginação combinados', async () => {
+    Categoria.findOne.mockResolvedValueOnce({ id: CATEGORIA_ID_UUID, usuarioId: 'usuario-1' });
+    Comprovante.findAll.mockResolvedValueOnce([]);
+
+    await ComprovanteService.listar('usuario-1', {
+      categoriaId: CATEGORIA_ID_UUID,
+      busca: '  Mercado  ',
+      pagina: 2,
+      limite: 5,
+    });
+
+    expect(Categoria.findOne).toHaveBeenCalledWith({
+      where: { id: CATEGORIA_ID_UUID, usuarioId: 'usuario-1' },
+    });
+    expect(Comprovante.findAll).toHaveBeenCalledWith(
+      expect.objectContaining({
+        limit: 5,
+        offset: 5,
+      })
+    );
+  });
+
+  test('listar rejeita categoriaId de outro usuário (UUID válido, mas não encontrado) com 400', async () => {
+    Categoria.findOne.mockResolvedValueOnce(null);
+
+    await expect(
+      ComprovanteService.listar('usuario-1', { categoriaId: CATEGORIA_ID_UUID_OUTRO })
+    ).rejects.toMatchObject({ statusCode: 400 });
+    expect(Comprovante.findAll).not.toHaveBeenCalled();
+  });
+
+  test.each([
+    ['string fora do formato UUID', 'abc'],
+    ['string fora do formato UUID', 'id-que-nao-existe'],
+    ['string vazia', ''],
+    ['string só com espaços', '   '],
+  ])('listar rejeita categoriaId com %s ("%s") com 400 sem consultar o banco', async (_caso, categoriaId) => {
+    await expect(
+      ComprovanteService.listar('usuario-1', { categoriaId })
+    ).rejects.toMatchObject({ statusCode: 400 });
+    expect(Categoria.findOne).not.toHaveBeenCalled();
+    expect(Comprovante.findAll).not.toHaveBeenCalled();
+  });
+
+  test('listar rejeita busca com mais de 100 caracteres com 400', async () => {
+    await expect(
+      ComprovanteService.listar('usuario-1', { busca: 'A'.repeat(101) })
+    ).rejects.toMatchObject({
+      statusCode: 400,
+      message: 'busca deve ter no máximo 100 caracteres.',
+    });
+    expect(Comprovante.findAll).not.toHaveBeenCalled();
+  });
+
+  test('listar ignora busca vazia (só espaços)', async () => {
+    Comprovante.findAll.mockResolvedValueOnce([]);
+
+    await ComprovanteService.listar('usuario-1', { busca: '   ' });
+
+    expect(Comprovante.findAll).toHaveBeenCalledWith({
+      where: { usuarioId: 'usuario-1' },
+      order: [['createdAt', 'DESC']],
+      limit: 20,
+      offset: 0,
+    });
+  });
+
+  describe('resumo', () => {
+    test('soma total, quantidade e agrupa por categoria, maior soma primeiro', async () => {
+      const mes = mesAtual();
+      Comprovante.findAll.mockResolvedValueOnce([
+        {
+          categoriaId: 'cat-material',
+          categoria: { nome: 'Material' },
+          valor: 100,
+          data: `${mes}-05`,
+        },
+        {
+          categoriaId: 'cat-alimentacao',
+          categoria: { nome: 'Alimentação' },
+          valor: 295.5,
+          data: `${mes}-10`,
+        },
+        {
+          categoriaId: 'cat-material',
+          categoria: { nome: 'Material' },
+          valor: 50,
+          data: `${mes}-20`,
+        },
+      ]);
+
+      const resultado = await ComprovanteService.resumo('usuario-1', {});
+
+      expect(resultado.mes).toBe(mes);
+      expect(resultado.total).toBe(445.5);
+      expect(resultado.quantidade).toBe(3);
+      expect(resultado.porCategoria).toEqual([
+        { categoriaId: 'cat-alimentacao', nome: 'Alimentação', total: 295.5, quantidade: 1 },
+        { categoriaId: 'cat-material', nome: 'Material', total: 150, quantidade: 2 },
+      ]);
+    });
+
+    test('soma valor vindo como string, como o Postgres devolve DECIMAL', async () => {
+      const mes = mesAtual();
+      Comprovante.findAll.mockResolvedValueOnce([
+        {
+          categoriaId: 'cat-material',
+          categoria: { nome: 'Material' },
+          valor: '10.50',
+          data: `${mes}-05`,
+        },
+        {
+          categoriaId: 'cat-material',
+          categoria: { nome: 'Material' },
+          valor: '5.25',
+          data: `${mes}-10`,
+        },
+      ]);
+
+      const resultado = await ComprovanteService.resumo('usuario-1', {});
+
+      expect(resultado.total).toBe(15.75);
+      expect(resultado.porCategoria).toEqual([
+        { categoriaId: 'cat-material', nome: 'Material', total: 15.75, quantidade: 2 },
+      ]);
+    });
+
+    test('valor null conta na quantidade mas não soma no total', async () => {
+      const mes = mesAtual();
+      Comprovante.findAll.mockResolvedValueOnce([
+        {
+          categoriaId: 'cat-material',
+          categoria: { nome: 'Material' },
+          valor: null,
+          data: `${mes}-05`,
+        },
+      ]);
+
+      const resultado = await ComprovanteService.resumo('usuario-1', {});
+
+      expect(resultado.total).toBe(0);
+      expect(resultado.quantidade).toBe(1);
+      expect(resultado.porCategoria).toEqual([
+        { categoriaId: 'cat-material', nome: 'Material', total: 0, quantidade: 1 },
+      ]);
+    });
+
+    test('comprovante sem data usa o mês de cadastro (createdAt) em Fortaleza', async () => {
+      const mes = mesAtual();
+      Comprovante.findAll.mockResolvedValueOnce([
+        {
+          categoriaId: 'cat-material',
+          categoria: { nome: 'Material' },
+          valor: 10,
+          data: null,
+          createdAt: new Date(),
+        },
+      ]);
+
+      const resultado = await ComprovanteService.resumo('usuario-1', {});
+
+      expect(resultado.mes).toBe(mes);
+      expect(resultado.quantidade).toBe(1);
+      expect(resultado.total).toBe(10);
+    });
+
+    describe('borda de fuso (America/Fortaleza) com createdAt fixo', () => {
+      beforeEach(() => {
+        jest.useFakeTimers({
+          doNotFake: [
+            'nextTick', 'setImmediate', 'setTimeout', 'clearTimeout',
+            'setInterval', 'clearInterval', 'queueMicrotask', 'hrtime',
+          ],
+        });
+        // fixa "agora" bem depois dos meses testados, só pra "mes" não ser
+        // considerado futuro independente de quando o teste for executado
+        jest.setSystemTime(new Date('2027-01-15T12:00:00.000Z'));
+      });
+
+      afterEach(() => {
+        jest.useRealTimers();
+      });
+
+      test('createdAt 2026-12-01T02:30:00Z (23:30 de 30/11 em Fortaleza) entra em 2026-11, não em 2026-12 (UTC)', async () => {
+        const comprovante = {
+          categoriaId: 'cat-material',
+          categoria: { nome: 'Material' },
+          valor: 10,
+          data: null,
+          createdAt: new Date('2026-12-01T02:30:00.000Z'),
+        };
+
+        Comprovante.findAll.mockResolvedValueOnce([comprovante]);
+        const resumoNovembro = await ComprovanteService.resumo('usuario-1', { mes: '2026-11' });
+        expect(resumoNovembro.quantidade).toBe(1);
+        expect(resumoNovembro.total).toBe(10);
+
+        Comprovante.findAll.mockResolvedValueOnce([comprovante]);
+        const resumoDezembro = await ComprovanteService.resumo('usuario-1', { mes: '2026-12' });
+        expect(resumoDezembro.quantidade).toBe(0);
+        expect(resumoDezembro.total).toBe(0);
+      });
+
+      test('createdAt 2026-11-01T02:30:00Z (23:30 de 31/10 em Fortaleza) entra em 2026-10, não em 2026-11 (UTC)', async () => {
+        const comprovante = {
+          categoriaId: 'cat-material',
+          categoria: { nome: 'Material' },
+          valor: 10,
+          data: null,
+          createdAt: new Date('2026-11-01T02:30:00.000Z'),
+        };
+
+        Comprovante.findAll.mockResolvedValueOnce([comprovante]);
+        const resumoOutubro = await ComprovanteService.resumo('usuario-1', { mes: '2026-10' });
+        expect(resumoOutubro.quantidade).toBe(1);
+        expect(resumoOutubro.total).toBe(10);
+
+        Comprovante.findAll.mockResolvedValueOnce([comprovante]);
+        const resumoNovembro = await ComprovanteService.resumo('usuario-1', { mes: '2026-11' });
+        expect(resumoNovembro.quantidade).toBe(0);
+        expect(resumoNovembro.total).toBe(0);
+      });
+    });
+
+    test('mês sem comprovantes retorna zeros e porCategoria vazia', async () => {
+      Comprovante.findAll.mockResolvedValueOnce([
+        {
+          categoriaId: 'cat-material',
+          categoria: { nome: 'Material' },
+          valor: 10,
+          data: '2020-01-10',
+        },
+      ]);
+
+      const resultado = await ComprovanteService.resumo('usuario-1', { mes: '2020-02' });
+
+      expect(resultado).toEqual({
+        mes: '2020-02',
+        total: 0,
+        quantidade: 0,
+        porCategoria: [],
+      });
+    });
+
+    test('sem o parâmetro mes usa o mês atual', async () => {
+      Comprovante.findAll.mockResolvedValueOnce([]);
+
+      const resultado = await ComprovanteService.resumo('usuario-1', {});
+
+      expect(resultado.mes).toBe(mesAtual());
+    });
+
+    test.each([
+      ['formato inválido', '2026/09'],
+      ['mês inexistente', '2026-13'],
+    ])('rejeita mes com %s com 400', async (_caso, mes) => {
+      await expect(
+        ComprovanteService.resumo('usuario-1', { mes })
+      ).rejects.toMatchObject({ statusCode: 400 });
+      expect(Comprovante.findAll).not.toHaveBeenCalled();
+    });
+
+    test('rejeita mês futuro com 400', async () => {
+      await expect(
+        ComprovanteService.resumo('usuario-1', { mes: '2999-01' })
+      ).rejects.toMatchObject({
+        statusCode: 400,
+        message: 'mes não pode ser futuro.',
+      });
+      expect(Comprovante.findAll).not.toHaveBeenCalled();
+    });
+  });
+
   test('detalhar comprovante de outro usuário rejeita com 403', async () => {
     Comprovante.findByPk.mockResolvedValueOnce({
       id: 'comprovante-1',
@@ -551,6 +872,26 @@ describe('ComprovanteService', () => {
       observacoes: 'nova observação',
     });
     expect(resultado.observacoes).toBe('nova observação');
+  });
+
+  test('editar rejeita observacoes com 501 caracteres com 400, sem aplicar alterações', async () => {
+    const comprovante = {
+      id: 'comprovante-1',
+      usuarioId: 'usuario-1',
+      observacoes: 'antiga',
+      update: jest.fn(),
+    };
+    Comprovante.findByPk.mockResolvedValueOnce(comprovante);
+
+    await expect(
+      ComprovanteService.editar('comprovante-1', 'usuario-1', {
+        observacoes: 'A'.repeat(501),
+      })
+    ).rejects.toMatchObject({
+      statusCode: 400,
+      message: 'Observações deve ter no máximo 500 caracteres.',
+    });
+    expect(comprovante.update).not.toHaveBeenCalled();
   });
 
   test('editar limpa observacoes enviando null', async () => {
