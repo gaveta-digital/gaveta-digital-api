@@ -152,7 +152,36 @@ Erros seguem o formato `{ "erro": "mensagem para o usuário" }`. Regras completa
 
 **Tecnologias:** Expo SDK 58 (React Native 0.88), JavaScript e Expo Router.
 
-**Situação:** em desenvolvimento na Etapa 2. O escopo das telas está em [`docs/VISAO-GERAL-PROJETO.md`](docs/VISAO-GERAL-PROJETO.md), seção 6.1. As instruções de instalação e execução do app serão adicionadas aqui junto com o código.
+**Situação:** em desenvolvimento na Etapa 2. O escopo das telas está em [`docs/VISAO-GERAL-PROJETO.md`](docs/VISAO-GERAL-PROJETO.md), seção 6.1. A base do app (navegação, sessão, cliente da API, componentes e utilitários) está pronta; as telas são preenchidas por tarefa.
+
+**Execução:**
+
+1. Suba a API (veja "Execução" em API REST) e descubra o IPv4 do computador na rede local (`ipconfig` no Windows, `ip addr` no Linux, `ipconfig getifaddr en0` no macOS). O celular precisa estar na mesma rede Wi-Fi.
+2. Entre na pasta do app, crie o `.env` e aponte para a API:
+
+```bash
+cd mobile
+cp .env.example .env          # no PowerShell: Copy-Item .env.example .env
+# edite o .env: EXPO_PUBLIC_API_URL=http://SEU-IPV4:8080
+npm install
+npx expo start
+```
+
+3. Escaneie o QR Code com o **Expo Go** (SDK 58) no iPhone ou no Android.
+
+**API e app juntos com Docker:** na raiz do repositório, com `api/.env` preenchido (`GEMINI_API_KEY` e `JWT_SECRET`):
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\start-docker.ps1   # Windows: detecta o IPv4 e sobe tudo
+```
+
+```bash
+HOST_IP=SEU-IPV4 docker compose up --build                            # Linux/macOS
+```
+
+A API fica em `http://SEU-IPV4:8080` e o Expo em `http://SEU-IPV4:8081`; escaneie o QR Code exibido no terminal. O `compose.yml` da raiz inclui o `api/compose.yml`, que continua servindo para subir só a API.
+
+**Estrutura:** `app/` (telas e rotas do Expo Router), `src/services/` (chamadas à API), `src/context/` (sessão), `src/components/`, `src/utils/` (validações e formatação) e `src/theme/`. Detalhes em [`docs/CONTRIBUTING.md`](docs/CONTRIBUTING.md), seção 0.
 
 ### Organização Git
 

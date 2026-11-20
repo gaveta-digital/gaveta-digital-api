@@ -1,0 +1,27 @@
+# API + aplicativo mobile juntos. Rode na raiz do repositório com HOST_IP definido
+# (o scripts/start-docker.ps1 detecta e define). Para só a API, use api/compose.yml.
+include:
+  - path: api/compose.yml
+
+services:
+  mobile:
+    build:
+      context: ./mobile
+      args:
+        EXPO_PUBLIC_API_URL: http://${HOST_IP:?defina HOST_IP com o IPv4 da rede local}:8080
+    ports:
+      - "8081:8081"
+    environment:
+      EXPO_PUBLIC_API_URL: http://${HOST_IP}:8080
+      REACT_NATIVE_PACKAGER_HOSTNAME: ${HOST_IP}
+    volumes:
+      - ./mobile:/app
+      - mobile-node-modules:/app/node_modules
+    stdin_open: true
+    tty: true
+    init: true
+    depends_on:
+      - api
+
+volumes:
+  mobile-node-modules:
