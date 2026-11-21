@@ -64,6 +64,26 @@ const UsuarioService ={
         const usuarioSemSenha = usuarioExistente.toJSON();
         delete usuarioSemSenha.senha;
         return { token, usuario: usuarioSemSenha };
+    },
+        async obterPerfil(id) {
+        const usuario = await UsuarioRepository.findById(id);
+        if (!usuario) {
+            const erro = new Error('Token inválido ou expirado');
+            erro.statusCode = 401;
+            throw erro;
+        }
+        return { id: usuario.id, nome: usuario.nome, email: usuario.email };
+    },
+
+    async atualizarPerfil(id, nome) {
+        const usuario = await UsuarioRepository.findById(id);
+        if (!usuario) {
+            const erro = new Error('Token inválido ou expirado');
+            erro.statusCode = 401;
+            throw erro;
+        }
+        const atualizado = await UsuarioRepository.atualizarNome(usuario, nome);
+        return { id: atualizado.id, nome: atualizado.nome, email: atualizado.email };
     }
 }
 
