@@ -12,6 +12,13 @@ const UsuarioRepository = {
   async create(dados, opcoes = {}) {
     return Usuario.create(dados, opcoes);
   },
+    async findById(id) {
+    return Usuario.findByPk(id); // defaultScope já exclui a senha
+  },
+
+  async atualizarNome(usuario, nome) {
+    return usuario.update({ nome });
+  },
 };
 
 module.exports = UsuarioRepository;
