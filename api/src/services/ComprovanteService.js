@@ -5,6 +5,11 @@ const geminiService = require('./geminiService');
 
 const NOME_CATEGORIA_PADRAO = 'Outros';
 
+// categoriaId é uma coluna UUID (Categoria.js); validar o formato antes de
+// consultar o banco evita erro de cast de tipo no Postgres (ali um valor fora
+// do formato lançaria exceção em vez de simplesmente não encontrar nada).
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 const CAMPOS_EDITAVEIS = [
   'estabelecimento',
   'data',
@@ -112,12 +117,59 @@ const ComprovanteService = {
     }
 
     const limite = Math.min(limiteSolicitado, 100);
+    const categoriaId = await validarCategoriaIdDoFiltro(query.categoriaId, usuarioId);
+    const busca = validarBusca(query.busca);
+
     const comprovantes = await ComprovanteRepository.findAllByUsuario(usuarioId, {
       limite,
       offset: (pagina - 1) * limite,
+      categoriaId,
+      busca,
     });
 
     return comprovantes.map(serializarComprovante);
+  },
+
+  async resumo(usuarioId, query = {}) {
+    const mes = validarMes(query.mes);
+    const comprovantes = await ComprovanteRepository.findAllByUsuarioComCategoria(usuarioId);
+    const doMes = comprovantes.filter((comprovante) => mesDoComprovante(comprovante) === mes);
+
+    const porCategoriaMap = new Map();
+    let total = 0;
+
+    for (const comprovante of doMes) {
+      const categoriaId = comprovante.categoriaId;
+
+      if (!porCategoriaMap.has(categoriaId)) {
+        porCategoriaMap.set(categoriaId, {
+          categoriaId,
+          nome: comprovante.categoria ? comprovante.categoria.nome : null,
+          total: 0,
+          quantidade: 0,
+        });
+      }
+
+      const grupo = porCategoriaMap.get(categoriaId);
+      grupo.quantidade += 1;
+
+      if (comprovante.valor !== null && comprovante.valor !== undefined) {
+        const valor = Number(comprovante.valor);
+        total += valor;
+        grupo.total += valor;
+      }
+    }
+
+    const porCategoria = Array.from(porCategoriaMap.values())
+      .map((grupo) => ({ ...grupo, total: arredondar(grupo.total) }))
+      .sort((a, b) => b.total - a.total);
+
+    return {
+      mes,
+      total: arredondar(total),
+      quantidade: doMes.length,
+      porCategoria,
+    };
   },
 
   async detalhar(id, usuarioId) {
@@ -181,6 +233,82 @@ function dataAtualEmFortaleza() {
 
   const obter = (tipo) => partes.find((parte) => parte.type === tipo).value;
   return `${obter('year')}-${obter('month')}-${obter('day')}`;
+}
+
+async function validarCategoriaIdDoFiltro(categoriaId, usuarioId) {
+  if (categoriaId === undefined) {
+    return undefined;
+  }
+
+  if (typeof categoriaId !== 'string' || !UUID_REGEX.test(categoriaId.trim())) {
+    throw criarErro(400, 'categoriaId deve identificar uma categoria válida.');
+  }
+
+  const categoriaIdTrim = categoriaId.trim();
+  const categoria = await CategoriaRepository.findByIdAndUsuario(categoriaIdTrim, usuarioId);
+  if (!categoria) {
+    throw criarErro(400, 'A categoria informada não existe ou não pertence ao usuário.');
+  }
+
+  return categoriaIdTrim;
+}
+
+function validarBusca(busca) {
+  if (busca === undefined) {
+    return undefined;
+  }
+
+  if (typeof busca !== 'string') {
+    throw criarErro(400, 'busca deve ser uma string.');
+  }
+
+  const buscaTrim = busca.trim();
+  if (buscaTrim.length > 100) {
+    throw criarErro(400, 'busca deve ter no máximo 100 caracteres.');
+  }
+
+  return buscaTrim || undefined;
+}
+
+function mesDeDataHora(data) {
+  const partes = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/Fortaleza',
+    year: 'numeric',
+    month: '2-digit',
+  }).formatToParts(data);
+
+  const obter = (tipo) => partes.find((parte) => parte.type === tipo).value;
+  return `${obter('year')}-${obter('month')}`;
+}
+
+function mesAtualEmFortaleza() {
+  return mesDeDataHora(new Date());
+}
+
+function mesDoComprovante(comprovante) {
+  return comprovante.data
+    ? comprovante.data.slice(0, 7)
+    : mesDeDataHora(comprovante.createdAt);
+}
+
+function validarMes(mes) {
+  if (mes === undefined) {
+    return mesAtualEmFortaleza();
+  }
+
+  if (typeof mes !== 'string' || !/^\d{4}-(0[1-9]|1[0-2])$/.test(mes)) {
+    throw criarErro(400, 'mes deve estar no formato YYYY-MM.');
+  }
+
+  if (mes > mesAtualEmFortaleza()) {
+    throw criarErro(400, 'mes não pode ser futuro.');
+  }
+
+  return mes;
+}
+
+function arredondar(valor) {
+  return Math.round((valor + Number.EPSILON) * 100) / 100;
 }
 
 function dataEhValida(data) {
@@ -301,6 +429,9 @@ function validarEPrepararCampos(body, opcoes = {}) {
 
     if (typeof body.observacoes === 'string') {
       const observacoes = body.observacoes.trim();
+      if (observacoes.length > 500) {
+        throw criarErro(400, 'Observações deve ter no máximo 500 caracteres.');
+      }
       dados.observacoes = observacoes || null;
     } else {
       dados.observacoes = null;
