@@ -57,7 +57,7 @@ const UsuarioService ={
         const token = jwt.sign(
             {id: usuarioExistente.id},
             process.env.JWT_SECRET,
-            {expiresIn: '1d'}
+            {expiresIn: TOKEN_EXPIRACAO}
         );
         
         //4. Retornar o token e os dados do usuário (sem a senha)
