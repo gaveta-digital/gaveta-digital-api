@@ -1,10 +1,11 @@
-const { Op, literal } = require('sequelize');
 const { Comprovante } = require('../models');
 
-// escapa os caracteres especiais do LIKE para que o termo digitado seja
-// tratado como texto literal, não como padrão (combinado com ESCAPE '\' na query)
-function escaparTermoBusca(texto) {
-  return texto.replace(/\\/g, '\\\\').replace(/%/g, '\\%').replace(/_/g, '\\_');
+// A comparação é feita em JavaScript porque o LOWER()/LIKE do SQLite só ignora
+// maiúsculas em letras ASCII: "CAFÉ" não casaria com a busca "café". O
+// toLowerCase() do JS trata letras acentuadas e dispensa escapar %, _ e \, já
+// que o termo é comparado como texto literal.
+function contemTexto(valor, termo) {
+  return typeof valor === 'string' && valor.toLowerCase().includes(termo);
 }
 
 const ComprovanteRepository = {
@@ -17,33 +18,27 @@ const ComprovanteRepository = {
   },
 
   async findAllByUsuario(usuarioId, { limite, offset, categoriaId, busca } = {}) {
-    const condicoes = { usuarioId };
+    const where = { usuarioId };
     if (categoriaId) {
-      condicoes.categoriaId = categoriaId;
+      where.categoriaId = categoriaId;
     }
 
-    const opcoes = {
-      order: [['createdAt', 'DESC']],
-      limit: limite,
-      offset,
-    };
+    const opcoes = { where, order: [['createdAt', 'DESC']] };
 
-    if (busca) {
-      const termoBusca = `%${escaparTermoBusca(busca.toLowerCase())}%`;
-      opcoes.where = {
-        [Op.and]: [
-          condicoes,
-          literal(
-            "(LOWER(estabelecimento) LIKE :termoBusca ESCAPE '\\' OR LOWER(observacoes) LIKE :termoBusca ESCAPE '\\')"
-          ),
-        ],
-      };
-      opcoes.replacements = { termoBusca };
-    } else {
-      opcoes.where = condicoes;
+    if (!busca) {
+      return Comprovante.findAll({ ...opcoes, limit: limite, offset });
     }
 
-    return Comprovante.findAll(opcoes);
+    // Com busca, filtra primeiro e só depois pagina, para a página refletir
+    // o resultado já filtrado.
+    const termo = busca.toLowerCase();
+    const encontrados = (await Comprovante.findAll(opcoes)).filter(
+      (comprovante) => contemTexto(comprovante.estabelecimento, termo)
+        || contemTexto(comprovante.observacoes, termo)
+    );
+
+    const inicio = offset || 0;
+    return encontrados.slice(inicio, limite === undefined ? undefined : inicio + limite);
   },
 
   async findAllByUsuarioComCategoria(usuarioId) {

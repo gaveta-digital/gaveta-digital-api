@@ -530,24 +530,32 @@ describe('ComprovanteService', () => {
 
   test('listar aplica categoriaId, busca e paginação combinados', async () => {
     Categoria.findOne.mockResolvedValueOnce({ id: CATEGORIA_ID_UUID, usuarioId: 'usuario-1' });
-    Comprovante.findAll.mockResolvedValueOnce([]);
+    Comprovante.findAll.mockResolvedValueOnce([
+      { id: 'c1', estabelecimento: 'MERCADO UM', observacoes: null },
+      { id: 'c2', estabelecimento: 'Padaria', observacoes: null },
+      { id: 'c3', estabelecimento: 'Mercado Dois', observacoes: null },
+      { id: 'c4', estabelecimento: null, observacoes: 'feira no mercado' },
+      { id: 'c5', estabelecimento: 'Mercado Quatro', observacoes: null },
+      { id: 'c6', estabelecimento: 'Mercado Cinco', observacoes: null },
+    ]);
 
-    await ComprovanteService.listar('usuario-1', {
+    const resultado = await ComprovanteService.listar('usuario-1', {
       categoriaId: CATEGORIA_ID_UUID,
       busca: '  Mercado  ',
       pagina: 2,
-      limite: 5,
+      limite: 2,
     });
 
     expect(Categoria.findOne).toHaveBeenCalledWith({
       where: { id: CATEGORIA_ID_UUID, usuarioId: 'usuario-1' },
     });
-    expect(Comprovante.findAll).toHaveBeenCalledWith(
-      expect.objectContaining({
-        limit: 5,
-        offset: 5,
-      })
-    );
+    // categoria e usuário vão para o banco; a busca e a paginação vêm depois
+    expect(Comprovante.findAll).toHaveBeenCalledWith({
+      where: { usuarioId: 'usuario-1', categoriaId: CATEGORIA_ID_UUID },
+      order: [['createdAt', 'DESC']],
+    });
+    // filtrados: c1, c3, c4, c5, c6 → página 2 de 2 itens = c4 e c5
+    expect(resultado.map((item) => item.id)).toEqual(['c4', 'c5']);
   });
 
   test('listar rejeita categoriaId de outro usuário (UUID válido, mas não encontrado) com 400', async () => {

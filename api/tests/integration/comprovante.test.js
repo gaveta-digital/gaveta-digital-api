@@ -427,6 +427,35 @@ describe('Integração — fluxo completo de Comprovantes', () => {
         expect(resposta.body.data[0].estabelecimento).toBe('Mercado Central');
       });
 
+      test('busca ignora maiúsculas e minúsculas também em letras acentuadas', async () => {
+        await criarComprovante(token, {
+          estabelecimento: 'CAFÉ DO ZÉ',
+          categoriaId: categoriaAlimentacao.id,
+        });
+        await criarComprovante(token, {
+          estabelecimento: 'Padaria São João',
+          categoriaId: categoriaAlimentacao.id,
+          observacoes: 'AÇAÍ com granola',
+        });
+
+        const buscar = async (busca) => {
+          const resposta = await request(app)
+            .get('/api/comprovantes')
+            .query({ busca })
+            .set('Authorization', `Bearer ${token}`);
+
+          expect(resposta.status).toBe(200);
+          return resposta.body.data.map((item) => item.estabelecimento);
+        };
+
+        // texto salvo em caixa alta, busca em minúsculas
+        expect(await buscar('café')).toEqual(['CAFÉ DO ZÉ']);
+        // texto salvo em minúsculas/misto, busca em caixa alta
+        expect(await buscar('SÃO JOÃO')).toEqual(['Padaria São João']);
+        // observações com letras acentuadas em caixa alta
+        expect(await buscar('açaí')).toEqual(['Padaria São João']);
+      });
+
       test('busca por observações', async () => {
         const resposta = await request(app)
           .get('/api/comprovantes')
