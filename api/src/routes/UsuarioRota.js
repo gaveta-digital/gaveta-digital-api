@@ -2,6 +2,8 @@ const {Router} = require('express');
 const UsuarioController= require ('../controllers/UsuarioController')
 const validarUsuario = require('../middlewares/validarUsuario');
 const validarLogin = require('../middlewares/validarLogin');
+const autenticacao = require('../middlewares/autenticacao');
+const validarAtualizacaoPerfil = require('../middlewares/validarAtualizacaoPerfil');
 
 const router = Router();
 
@@ -72,5 +74,48 @@ router.post('/usuarios', validarUsuario, UsuarioController.criarUsuario);
  *         description: Email ou senha incorreta
  */
 router.post('/login', validarLogin, UsuarioController.loginUsuario);
+
+/**
+ * @swagger
+ * /usuarios/me:
+ *   get:
+ *     summary: Retorna o perfil do usuário autenticado
+ *     tags:
+ *       - Usuários
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Perfil do usuário (id, nome e email)
+ *       401:
+ *         description: Token ausente, inválido ou expirado
+ *   patch:
+ *     summary: Atualiza o nome do usuário autenticado
+ *     tags:
+ *       - Usuários
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - nome
+ *             properties:
+ *               nome:
+ *                 type: string
+ *                 example: João Silva
+ *     responses:
+ *       200:
+ *         description: Perfil atualizado (id, nome e email)
+ *       400:
+ *         description: Nome inválido, campo não permitido ou corpo vazio
+ *       401:
+ *         description: Token ausente, inválido ou expirado
+ */
+router.get('/usuarios/me', autenticacao, UsuarioController.obterPerfil);
+router.patch('/usuarios/me', autenticacao, validarAtualizacaoPerfil, UsuarioController.atualizarPerfil);
 
 module.exports = router;
