@@ -4,6 +4,7 @@ const jwt = require('jsonwebtoken');
 const UsuarioRepository = require('../repositories/UsuarioRepository');
 
 const saltRounds = 10;
+const TOKEN_EXPIRACAO = '7d'; // 7 dias
 
 const UsuarioService ={
 
