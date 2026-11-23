@@ -51,6 +51,24 @@ const UsuarioController = {
             //enviar o erro para o middleware de tratamento de erros
             next(erro);
         }
+    },
+
+    async obterPerfil(req, res, next) {
+        try {
+            const data = await UsuarioService.obterPerfil(req.usuarioId);
+            res.status(200).json({ status: 'sucesso', data });
+        } catch (erro) {
+            next(erro);
+        }
+    },
+
+    async atualizarPerfil(req, res, next) {
+        try {
+            const data = await UsuarioService.atualizarPerfil(req.usuarioId, req.body.nome);
+            res.status(200).json({ status: 'sucesso', data });
+        } catch (erro) {
+            next(erro);
+        }
     }
 }
 

@@ -256,8 +256,8 @@ Todas as respostas abaixo devem seguir o formato `{ "erro": "mensagem" }`.
 1. O cliente envia o arquivo da foto e o token de autenticação.
 2. A API valida a autenticação e identifica o usuário, sem aceitar que o cliente escolha o proprietário do comprovante.
 3. A API valida o formato e o tamanho do arquivo, armazena a imagem e obtém sua referência interna.
-4. A API busca as categorias do usuário e envia ao Gemini o conteúdo da imagem junto com essa lista. A referência interna do armazenamento, sozinha, não fornece a imagem ao Gemini.
-5. O Gemini retorna os dados extraídos (`estabelecimento`, `data`, `valor` e `categoriaId`) ou indica imagem ilegível, conforme a seção 4.
+4. A API busca as categorias do usuário e envia à IA o conteúdo da imagem junto com essa lista. A referência interna do armazenamento, sozinha, não fornece a imagem à IA.
+5. A IA retorna os dados extraídos (`estabelecimento`, `data`, `valor` e `categoriaId`) ou indica imagem ilegível, conforme a seção 4.
 6. A API valida os dados retornados e a categoria segundo as regras deste documento; não persiste a resposta da IA sem validação.
 7. Em caso de sucesso, a API reúne os dados, a referência interna da imagem e o `usuarioId` autenticado, salva o comprovante e retorna `201 Created`. Campos não identificados podem permanecer `null` conforme suas regras; a categoria usa o fallback definido.
 
@@ -306,19 +306,19 @@ Todas as respostas abaixo devem seguir o formato `{ "erro": "mensagem" }`.
 
 ---
 
-## 4. Comportamento da IA (Gemini) — regras de decisão
+## 4. Comportamento da IA (Groq) — regras de decisão
 
 ### Classificação nas categorias do usuário
 
 1. A API identifica o usuário autenticado e busca apenas as categorias dele.
-2. Em cada solicitação de leitura, envia ao Gemini a imagem e a lista de IDs e nomes dessas categorias como contexto. Não é necessário treinar o modelo nem conceder acesso direto ao banco.
+2. Em cada solicitação de leitura, envia à IA a imagem e a lista de IDs e nomes dessas categorias como contexto. Não é necessário treinar o modelo nem conceder acesso direto ao banco.
 3. A IA deve escolher uma categoria da lista e retornar seu `categoriaId`, ou retornar `null` quando nenhuma categoria for adequada ou não conseguir classificar.
 4. Antes de salvar, a API verifica se a categoria retornada existe e pertence ao usuário. Um ID inexistente, de outro usuário ou uma classificação ausente não deve ser usado; nesses casos, atribuir `Outros` do proprietário do comprovante.
 5. O proprietário pode editar a categoria do comprovante depois, mesmo quando a IA tiver classificado com sucesso, escolhendo outra categoria sua.
 6. Se a categoria desejada ainda não existir, o usuário pode criá-la pelo CRUD de categorias e depois selecioná-la no comprovante. Selecionar `Outros` não cria uma categoria personalizada automaticamente.
 
 - Alterar a categoria de um comprovante muda apenas o vínculo daquele registro. Renomear uma categoria altera o nome exibido para todos os comprovantes vinculados a ela.
-- O fallback de categoria não substitui o tratamento de imagem ilegível ou falha na chamada ao Gemini descrito abaixo.
+- O fallback de categoria não substitui o tratamento de imagem ilegível ou falha na chamada à IA descrito abaixo.
 
 ### Caso 1: Imagem boa, campo específico não identificado
 
@@ -332,11 +332,11 @@ Exemplo: a foto é nítida, mas a data está cortada fora do enquadramento.
 - Não corrigir por adivinhação, truncar ou arredondar silenciosamente um campo inválido.
 - Para `categoriaId` inválido ou não identificado, usar `Outros` do usuário, conforme o fluxo de classificação, nunca `null`.
 - Essa tolerância vale para campos extraídos pela IA. Na edição manual, dados inválidos retornam `400 Bad Request`, sem aplicar nenhuma das alterações solicitadas.
-- Essa regra não transforma imagem ilegível ou falha na chamada ao Gemini em criação bem-sucedida; esses casos continuam sujeitos aos tratamentos abaixo.
+- Essa regra não transforma imagem ilegível ou falha na chamada à IA em criação bem-sucedida; esses casos continuam sujeitos aos tratamentos abaixo.
 
 ### Caso 2: Imagem ruim/ilegível (borrada, escura, não é um comprovante)
 
-→ **Regra:** o Gemini deve ser instruído (no prompt) a indicar isso explicitamente, por exemplo devolvendo um campo `"erro": "imagem ilegível"` em vez de inventar dados.
+→ **Regra:** a IA deve ser instruída (no prompt) a indicar isso explicitamente, por exemplo devolvendo um campo `"erro": "imagem ilegível"` em vez de inventar dados.
 → A API, ao identificar esse campo de erro na resposta, **não cria o comprovante** e retorna `422 Unprocessable Entity` com uma mensagem clara, tipo:
 
 ```json
@@ -345,7 +345,7 @@ Exemplo: a foto é nítida, mas a data está cortada fora do enquadramento.
 }
 ```
 
-### Caso 3: Falha na chamada à API do Gemini (fora do ar, timeout, limite excedido)
+### Caso 3: Falha na chamada à API da IA (fora do ar, timeout, limite excedido)
 
 → **Regra:** tratar como erro de integração, não repassar o erro técnico bruto pro usuário. Retornar `503 Service Unavailable` com mensagem amigável:
 
@@ -355,7 +355,7 @@ Exemplo: a foto é nítida, mas a data está cortada fora do enquadramento.
 }
 ```
 
-### Resposta do Gemini que não pode ser interpretada
+### Resposta da IA que não pode ser interpretada
 
 - Se a resposta inteira não puder ser interpretada como o resultado esperado, tratar como falha de integração e retornar `503 Service Unavailable`, com a mesma mensagem amigável de indisponibilidade acima.
 - Não criar o comprovante e remover a imagem já armazenada daquele upload, conforme a regra de limpeza em caso de falha.
@@ -365,13 +365,16 @@ Exemplo: a foto é nítida, mas a data está cortada fora do enquadramento.
 
 - Orientar a IA a indicar imagem ilegível quando estiver tão borrada, escura, cortada ou ilegível que não permita interpretar o comprovante.
 - Se o comprovante puder ser interpretado, mas um campo específico não estiver legível, retornar `null` nesse campo, sem rejeitar toda a imagem.
+- Se algum dígito do valor ou da data não estiver nítido, retornar `null` nesse campo em vez de adivinhar.
 - Não adotar uma porcentagem arbitrária de visibilidade declarada pela IA como critério de aceitação. Usar os critérios de legibilidade acima e não inventar informações.
 
 ### Modelos e tentativas
 
-- A lista de modelos fica na variável de ambiente `GEMINI_MODELS`, em ordem de preferência, separada por vírgulas. Sem a variável, a API usa uma lista padrão definida no código *(Etapa 2)*.
-- Priorizar os modelos Flash-Lite, que respondem mais rápido e têm cota gratuita maior; deixar os modelos Flash como alternativa. Não usar modelos da família 2.5 nem 1.5.
-- Cada tentativa tem tempo limite de 15 segundos. Timeout, `429` (limite de requisições) ou `503` do Gemini levam à próxima tentativa; esgotadas as tentativas, a API responde `503`, conforme o Caso 3.
+- A lista de modelos fica na variável de ambiente `IA_MODELOS`, em ordem de preferência, separada por vírgulas. Sem a variável, a API usa o modelo padrão `qwen/qwen3.8-27b` *(Etapa 2)*. O endereço do provedor fica em `IA_BASE_URL` (padrão: `https://api.groq.com/openai/v1`) e a chave em `IA_API_KEY`.
+- Os modelos precisam aceitar imagem e resposta em JSON.
+- Cada tentativa tem tempo limite de 15 segundos. Timeout ou `503` do provedor levam à próxima tentativa, sem espera.
+- `429` (limite de requisições): se o cabeçalho `retry-after` indicar até 5 segundos, a API espera e tenta mais uma vez; caso contrário, responde `503` na hora, sem tentar outro modelo.
+- Esgotadas as tentativas, a API responde `503`, conforme o Caso 3.
 - Cada tentativa gera um registro de uso da IA (seção 9).
 
 ### Regra geral de ouro
@@ -406,7 +409,7 @@ Todas as rotas devem seguir o mesmo formato de erro, pra facilitar tratamento no
 | 413    | Arquivo enviado excede o limite de tamanho permitido                            |
 | 415    | Formato de arquivo enviado não suportado                                        |
 | 422    | Dados semanticamente inválidos (ex: imagem ilegível pela IA)                    |
-| 503    | Serviço externo (Gemini) indisponível                                           |
+| 503    | Serviço externo (IA) indisponível                                           |
 | 500    | Erro interno inesperado                                                         |
 
 ---
@@ -416,8 +419,8 @@ Todas as rotas devem seguir o mesmo formato de erro, pra facilitar tratamento no
 - Nenhuma rota de `Comprovante` ou `Categoria` deve funcionar sem autenticação (token).
 - Um usuário só pode ver, editar ou excluir **seus próprios** comprovantes — nunca de outro usuário, mesmo sabendo o `id`.
 - Um usuário só pode acessar e gerenciar suas próprias categorias. Um comprovante só pode ser vinculado a uma categoria do mesmo proprietário.
-- A chave da API do Gemini nunca deve aparecer em nenhuma resposta da API nem em log de erro.
-- O aplicativo nunca chama o Gemini diretamente nem guarda a chave: toda leitura passa pela API.
+- A chave da API da IA (`IA_API_KEY`) nunca deve aparecer em nenhuma resposta da API nem em log de erro.
+- O aplicativo nunca chama a IA diretamente nem guarda a chave: toda leitura passa pela API.
 - No aplicativo, o token fica no armazenamento seguro do dispositivo (`expo-secure-store`) e é apagado ao sair.
 
 ---
@@ -463,20 +466,20 @@ O aplicativo valida os dados antes de enviar, para dar retorno imediato ao usuá
 
 ## 9. Registro de uso da IA (Etapa 2)
 
-Toda tentativa de leitura no Gemini gera um registro `UsoIA`, inclusive as que falham, porque uma imagem ilegível também consome tokens.
+Toda tentativa de leitura na IA (Groq) gera um registro `UsoIA`, inclusive as que falham, porque uma imagem ilegível também consome tokens.
 
 | Campo | Regra |
 | ----- | ----- |
 | `usuarioId` | Usuário que enviou a imagem. Preenchido pela API. |
 | `comprovanteId` | Comprovante criado na leitura; `null` quando nenhum foi criado (`422`, `503` ou tentativa que levou à próxima). |
 | `modelo` | Modelo usado na tentativa. |
-| `tokensEntrada` | `usageMetadata.promptTokenCount` da resposta do Gemini. |
-| `tokensSaida` | `usageMetadata.candidatesTokenCount`, somado a `thoughtsTokenCount` quando o modelo informar raciocínio. |
-| `tokensTotal` | `usageMetadata.totalTokenCount`. |
+| `tokensEntrada` | `usage.prompt_tokens` da resposta do provedor. |
+| `tokensSaida` | `usage.completion_tokens`. |
+| `tokensTotal` | `usage.total_tokens`. |
 | `duracaoMs` | Duração da tentativa, em milissegundos. |
 | `resultado` | `sucesso`, `ilegivel` ou `erro`. |
 
-- Sem resposta do Gemini (timeout ou falha de rede), os tokens ficam `0` e o resultado é `erro`.
+- Sem resposta da IA (timeout ou falha de rede), os tokens ficam `0` e o resultado é `erro`.
 - Falha ao gravar o registro não pode impedir nem desfazer a criação do comprovante; o problema é apenas registrado em log.
 - Excluir um comprovante não apaga seus registros de uso; o `comprovanteId` passa a `null`.
 - `GET /uso-ia`, com autenticação, retorna somente os dados do próprio usuário: `totalTentativas`, `tokensEntrada`, `tokensSaida`, `tokensTotal`, a lista `porModelo` (modelo, tentativas e tokens) e as `ultimas` 10 tentativas.

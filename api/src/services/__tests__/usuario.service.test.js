@@ -203,7 +203,7 @@ describe('UsuarioService', () => {
       expect(jwt.sign).toHaveBeenCalledWith(
         { id: 1 },
         'chave-teste-secreta',
-        { expiresIn: '1d' }
+        { expiresIn: '7d' }
       );
     });
   });

@@ -11,26 +11,28 @@ process.env.DB_STORAGE = DB_TEMP;
 process.env.DATA_DIR = DATA_TEMP;
 process.env.NODE_ENV = 'test';
 process.env.JWT_SECRET = 'segredo-de-integracao';
-process.env.GEMINI_API_KEY = 'chave-de-integracao';
+process.env.IA_API_KEY = 'chave-de-integracao';
+delete process.env.IA_BASE_URL;
+delete process.env.IA_MODELOS;
 
-// gemini simulado, nenhuma chamada real
-const mockGenerateContent = jest.fn();
-jest.mock('@google/generative-ai', () => ({
-  GoogleGenerativeAI: jest.fn().mockImplementation(() => ({
-    getGenerativeModel: jest.fn().mockReturnValue({
-      generateContent: mockGenerateContent,
-    }),
-  })),
-}));
+// IA simulada: o fetch global é substituído, nenhuma chamada real ao provedor.
+// (o supertest usa o módulo http, então não é afetado)
+const mockFetch = jest.fn();
+global.fetch = mockFetch;
 
 const request = require('supertest');
 const app = require('../../src/app');
 const { sequelize, Comprovante } = require('../../src/models');
 
-function respostaGemini(objeto) {
-  return {
-    response: { text: () => JSON.stringify(objeto) },
-  };
+// resposta do provedor no formato da OpenAI: o JSON da IA vem em choices[0].message.content
+function respostaIA(objeto) {
+  return new Response(
+    JSON.stringify({
+      choices: [{ message: { content: JSON.stringify(objeto) } }],
+      usage: { prompt_tokens: 2000, completion_tokens: 65, total_tokens: 2065 },
+    }),
+    { status: 200, headers: { 'content-type': 'application/json' } }
+  );
 }
 
 // png de 1 pixel, só pra ter uma imagem válida
@@ -96,7 +98,7 @@ describe('Integração — fluxo completo de Comprovantes', () => {
   test('fluxo completo: upload real -> IA -> salva no banco -> 201', async () => {
     const token = await criarUsuarioEToken('fluxo-completo@teste.com');
 
-    mockGenerateContent.mockResolvedValueOnce(respostaGemini({
+    mockFetch.mockResolvedValueOnce(respostaIA({
       estabelecimento: 'Mercado Integração',
       data: '2026-09-20',
       valor: 25.9,
@@ -120,7 +122,7 @@ describe('Integração — fluxo completo de Comprovantes', () => {
   test('campos null retornados pela IA não quebram o fluxo e retornam 201', async () => {
     const token = await criarUsuarioEToken('campos-nulos@teste.com');
 
-    mockGenerateContent.mockResolvedValueOnce(respostaGemini({
+    mockFetch.mockResolvedValueOnce(respostaIA({
       estabelecimento: null,
       data: null,
       valor: null,
@@ -142,8 +144,8 @@ describe('Integração — fluxo completo de Comprovantes', () => {
   test('imagem ilegível retorna 422 e nenhum comprovante é criado', async () => {
     const token = await criarUsuarioEToken('imagem-ilegivel@teste.com');
 
-    mockGenerateContent.mockResolvedValueOnce(
-      respostaGemini({ erro: 'imagem ilegível' })
+    mockFetch.mockResolvedValueOnce(
+      respostaIA({ erro: 'imagem ilegível' })
     );
 
     const antes = await Comprovante.count();
@@ -158,10 +160,10 @@ describe('Integração — fluxo completo de Comprovantes', () => {
     expect(depois).toBe(antes);
   });
 
-  test('falha do Gemini retorna 503 e a API continua funcionando depois', async () => {
-    const token = await criarUsuarioEToken('gemini-indisponivel@teste.com');
+  test('falha da IA retorna 503 e a API continua funcionando depois', async () => {
+    const token = await criarUsuarioEToken('ia-indisponivel@teste.com');
 
-    mockGenerateContent.mockRejectedValueOnce(new Error('timeout simulado'));
+    mockFetch.mockRejectedValueOnce(new Error('timeout simulado'));
 
     const antes = await Comprovante.count();
 
@@ -188,7 +190,7 @@ describe('Integração — fluxo completo de Comprovantes', () => {
       tokenA = await criarUsuarioEToken(`usuario-a-${Date.now()}@teste.com`);
       tokenB = await criarUsuarioEToken(`usuario-b-${Date.now()}@teste.com`);
 
-      mockGenerateContent.mockResolvedValueOnce(respostaGemini({
+      mockFetch.mockResolvedValueOnce(respostaIA({
         estabelecimento: 'Loja do Usuário A',
         data: null,
         valor: null,
@@ -257,7 +259,7 @@ describe('Integração — fluxo completo de Comprovantes', () => {
     beforeEach(async () => {
       token = await criarUsuarioEToken(`edge-cases-${Date.now()}@teste.com`);
 
-      mockGenerateContent.mockResolvedValueOnce(respostaGemini({
+      mockFetch.mockResolvedValueOnce(respostaIA({
         estabelecimento: null,
         data: null,
         valor: null,
@@ -322,7 +324,7 @@ describe('Integração — fluxo completo de Comprovantes', () => {
       categoriaId = null,
       observacoes,
     } = {}) {
-      mockGenerateContent.mockResolvedValueOnce(respostaGemini({
+      mockFetch.mockResolvedValueOnce(respostaIA({
         estabelecimento,
         data,
         valor,
@@ -425,6 +427,35 @@ describe('Integração — fluxo completo de Comprovantes', () => {
         expect(resposta.status).toBe(200);
         expect(resposta.body.data).toHaveLength(1);
         expect(resposta.body.data[0].estabelecimento).toBe('Mercado Central');
+      });
+
+      test('busca ignora maiúsculas e minúsculas também em letras acentuadas', async () => {
+        await criarComprovante(token, {
+          estabelecimento: 'CAFÉ DO ZÉ',
+          categoriaId: categoriaAlimentacao.id,
+        });
+        await criarComprovante(token, {
+          estabelecimento: 'Padaria São João',
+          categoriaId: categoriaAlimentacao.id,
+          observacoes: 'AÇAÍ com granola',
+        });
+
+        const buscar = async (busca) => {
+          const resposta = await request(app)
+            .get('/api/comprovantes')
+            .query({ busca })
+            .set('Authorization', `Bearer ${token}`);
+
+          expect(resposta.status).toBe(200);
+          return resposta.body.data.map((item) => item.estabelecimento);
+        };
+
+        // texto salvo em caixa alta, busca em minúsculas
+        expect(await buscar('café')).toEqual(['CAFÉ DO ZÉ']);
+        // texto salvo em minúsculas/misto, busca em caixa alta
+        expect(await buscar('SÃO JOÃO')).toEqual(['Padaria São João']);
+        // observações com letras acentuadas em caixa alta
+        expect(await buscar('açaí')).toEqual(['Padaria São João']);
       });
 
       test('busca por observações', async () => {

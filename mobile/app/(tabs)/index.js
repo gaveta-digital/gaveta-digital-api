@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
+  ActivityIndicator,
   FlatList,
   Pressable,
   RefreshControl,
@@ -18,32 +19,18 @@ import { categoriaService } from '../../src/services/categoriaService';
 import { comprovanteService } from '../../src/services/comprovanteService';
 import { useDebounce } from '../../src/hooks/useDebounce';
 import { cores } from '../../src/theme';
+import { mensagemDeErro } from '../../src/utils/erros';
 import { formatarData, formatarMoeda, iniciaisNome } from '../../src/utils/formatacao';
 
 const LIMITE_POR_PAGINA = 20;
 const ESPERA_BUSCA_MS = 400;
 const TAMANHO_MAXIMO_BUSCA = 100;
 
-const MENSAGEM_SEM_CONEXAO = 'Sem conexão com o servidor.';
 const MENSAGEM_FORMATO_INVALIDO = 'Recebemos uma resposta inválida do servidor.';
-const STATUS_COM_MENSAGEM_PROPRIA = [400, 409, 413, 415];
 
 // Sinaliza resposta com status OK, mas corpo fora do formato esperado — nunca
 // tratado como lista/resumo vazio (seção 8 do documento de regras).
 class RespostaFormatoInvalidoError extends Error {}
-
-// Seção 8: erro.response com status 400/409/413/415 e corpo { erro } usa essa
-// mensagem; sem resposta (rede/timeout) usa a mensagem de "sem conexão". A
-// seção 8 não define texto para os demais status nesta tela (ex.: 403, 404,
-// 429, 500) nem para listar/resumo especificamente — por decisão deste
-// ajuste, eles caem na mesma mensagem de "sem conexão" (ver relatório).
-export function mensagemErroRequisicao(erro) {
-  const resposta = erro?.response;
-  if (resposta && STATUS_COM_MENSAGEM_PROPRIA.includes(resposta.status) && resposta.data?.erro) {
-    return resposta.data.erro;
-  }
-  return MENSAGEM_SEM_CONEXAO;
-}
 
 export function listaDeComprovantesValida(dados) {
   return Array.isArray(dados);
@@ -159,7 +146,7 @@ export default function Comprovantes() {
       setResumoErro(
         erro instanceof RespostaFormatoInvalidoError
           ? MENSAGEM_FORMATO_INVALIDO
-          : mensagemErroRequisicao(erro)
+          : mensagemDeErro(erro)
       );
     } finally {
       if (idRequisicao === resumoIdRef.current) setResumoCarregando(false);
@@ -205,7 +192,7 @@ export default function Comprovantes() {
 
       const mensagem = erro instanceof RespostaFormatoInvalidoError
         ? MENSAGEM_FORMATO_INVALIDO
-        : mensagemErroRequisicao(erro);
+        : mensagemDeErro(erro);
 
       // Vai para o erro de tela cheia quando a lista foi limpa (troca de
       // filtro/busca ou carga inicial) ou quando não há nada já exibido.
@@ -339,9 +326,14 @@ export default function Comprovantes() {
         }}
       >
         {resumoCarregando ? (
-          <Carregando />
+          <ActivityIndicator color="#FFFFFF" />
         ) : resumoErro ? (
-          <ErroConexao tentarNovamente={carregarResumo} mensagem={resumoErro} />
+          <View>
+            <Text style={{ color: '#FFFFFF' }}>{resumoErro}</Text>
+            <Pressable onPress={carregarResumo} style={{ marginTop: 8 }}>
+              <Text style={{ color: cores.destaque, fontWeight: '700' }}>Tentar de novo</Text>
+            </Pressable>
+          </View>
         ) : (
           <>
             <Text style={{ color: cores.destaque, fontWeight: '600' }}>Resumo do mês</Text>
@@ -368,6 +360,7 @@ export default function Comprovantes() {
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
         style={{ paddingLeft: 16, marginBottom: 12 }}
         contentContainerStyle={{ paddingRight: 16 }}
       >
@@ -399,37 +392,43 @@ export default function Comprovantes() {
       </View>
     );
 
+  // Carregando e erro aparecem no lugar dos itens, sem desmontar a FlatList:
+  // assim o campo de busca e os chips (no cabeçalho) continuam na tela, com o
+  // foco e a rolagem preservados, e dá para trocar o filtro depois de um erro.
+  // No pull to refresh o próprio RefreshControl já indica o carregamento.
+  let conteudoSemItens = listaVazia;
+  if (carregandoInicial) {
+    conteudoSemItens = atualizando ? null : <Carregando />;
+  } else if (erroTela) {
+    conteudoSemItens = <ErroConexao tentarNovamente={tentarDeNovoTela} mensagem={erroTela} />;
+  }
+
   return (
     <View style={{ flex: 1, backgroundColor: cores.fundo }}>
-      {erroTela ? (
-        <ErroConexao tentarNovamente={tentarDeNovoTela} mensagem={erroTela} />
-      ) : carregandoInicial && !atualizando ? (
-        <Carregando />
-      ) : (
-        <FlatList
-          data={comprovantes}
-          keyExtractor={(item) => item.id}
-          renderItem={renderItem}
-          ListHeaderComponent={cabecalho}
-          ListEmptyComponent={listaVazia}
-          ListFooterComponent={
-            carregandoMais ? (
-              <Carregando />
-            ) : erroRodape ? (
-              <Pressable onPress={tentarDeNovoRodape} style={{ padding: 16, alignItems: 'center' }}>
-                <Text style={{ color: cores.erro }}>
-                  {erroRodape} Tocar para tentar de novo.
-                </Text>
-              </Pressable>
-            ) : null
-          }
-          onEndReached={carregarMais}
-          onEndReachedThreshold={0.4}
-          refreshControl={
-            <RefreshControl refreshing={atualizando} onRefresh={aoAtualizar} />
-          }
-        />
-      )}
+      <FlatList
+        data={comprovantes}
+        keyExtractor={(item) => item.id}
+        renderItem={renderItem}
+        ListHeaderComponent={cabecalho}
+        ListEmptyComponent={conteudoSemItens}
+        ListFooterComponent={
+          carregandoMais ? (
+            <Carregando />
+          ) : erroRodape ? (
+            <Pressable onPress={tentarDeNovoRodape} style={{ padding: 16, alignItems: 'center' }}>
+              <Text style={{ color: cores.erro }}>
+                {erroRodape} Tocar para tentar de novo.
+              </Text>
+            </Pressable>
+          ) : null
+        }
+        onEndReached={carregarMais}
+        onEndReachedThreshold={0.4}
+        keyboardShouldPersistTaps="handled"
+        refreshControl={
+          <RefreshControl refreshing={atualizando} onRefresh={aoAtualizar} />
+        }
+      />
 
       <Pressable
         onPress={() => router.push('/captura')}

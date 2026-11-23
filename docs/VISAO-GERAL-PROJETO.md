@@ -18,7 +18,7 @@ Prestadores de serviço autônomos e MEIs acumulam recibos, notas fiscais e bole
 
 Um aplicativo onde o usuário **tira uma foto do comprovante** e uma Inteligência Artificial extrai automaticamente os dados relevantes (estabelecimento, data, valor, categoria), organizando tudo num histórico consultável por usuário. A geração de relatórios consolidados é uma evolução futura, fora do escopo atual.
 
-**Diferencial:** não é "só usar o Gemini direto". O valor do produto está em tudo ao redor da IA, como persistência organizada por usuário, histórico consultável, validação de dados e possibilidade de correção manual. A IA é uma peça do sistema, não o produto em si.
+**Diferencial:** não é "só usar a IA direto". O valor do produto está em tudo ao redor da IA, como persistência organizada por usuário, histórico consultável, validação de dados e possibilidade de correção manual. A IA é uma peça do sistema, não o produto em si.
 
 ---
 
@@ -32,7 +32,7 @@ API (Node.js + Express)
       │  1. autentica o usuário e valida o arquivo
       │  2. armazena a imagem de forma privada e obtém sua referência
       │  3. busca as categorias do usuário
-      │  4. envia a imagem ao Gemini com instruções e essas categorias
+      │  4. envia a imagem à IA com instruções e essas categorias
       │  5. valida e normaliza os dados retornados
       │  6. resolve a categoria válida ou usa “Outros” do usuário
       │  7. salva o comprovante com a referência da imagem e o proprietário
@@ -42,9 +42,9 @@ API (Node.js + Express)
 Banco de dados + armazenamento privado de imagens
 ```
 
-O fluxo é **síncrono**: o cliente aguarda a resposta da API na mesma requisição. A implementação deve tratar timeout, indisponibilidade e respostas inválidas do Gemini, sem prometer um tempo fixo de leitura. Processamento assíncrono por fila fica para uma evolução futura.
+O fluxo é **síncrono**: o cliente aguarda a resposta da API na mesma requisição. A implementação deve tratar timeout, indisponibilidade e respostas inválidas da IA, sem prometer um tempo fixo de leitura. Processamento assíncrono por fila fica para uma evolução futura.
 
-Campos individuais não identificados ou inválidos podem ficar `null`, conforme suas regras; a categoria usa “Outros” do usuário. Imagem ilegível impede a criação e retorna `422`; falha de integração com Gemini retorna `503`. Se a criação falhar, a imagem armazenada daquele upload deve ser removida.
+Campos individuais não identificados ou inválidos podem ficar `null`, conforme suas regras; a categoria usa “Outros” do usuário. Imagem ilegível impede a criação e retorna `422`; falha de integração com a IA retorna `503`. Se a criação falhar, a imagem armazenada daquele upload deve ser removida.
 
 O proprietário pode corrigir os dados depois, inclusive a categoria identificada pela IA. As imagens são acessadas por rota protegida, sem exposição pública do armazenamento.
 
@@ -105,7 +105,7 @@ Todos os caminhos abaixo usam o prefixo `/api`. As rotas de Categoria e Comprova
 
 | Método | Rota      | Função |
 | ------ | --------- | ------ |
-| GET    | `/uso-ia` | Resumo dos tokens consumidos pelo usuário nas leituras do Gemini |
+| GET    | `/uso-ia` | Resumo dos tokens consumidos pelo usuário nas leituras da IA |
 
 ---
 
@@ -116,7 +116,7 @@ Todos os caminhos abaixo usam o prefixo `/api`. As rotas de Categoria e Comprova
 - Cadastro e login de usuários
 - CRUD de categorias por usuário e CRUD de comprovantes, com edição parcial via PATCH
 - Upload, armazenamento privado e leitura protegida das imagens
-- Integração com a API do Gemini para extração e classificação nas categorias do usuário
+- Integração com a API de IA (Groq) para extração e classificação nas categorias do usuário
 - Persistência em banco de dados, validação e tratamento de erros
 - Testes unitários na Sprint 1 e testes de integração/API na Sprint 2
 
@@ -154,8 +154,8 @@ Em todas as telas: validação dos campos antes do envio, indicador de carregame
 
 ### Ajustes na API
 
-- Atualizar a lista de modelos do Gemini e torná-la configurável pelo `.env`, priorizando os modelos mais rápidos e com mais cota gratuita.
-- Registrar os tokens consumidos em cada chamada ao Gemini (entidade `UsoIA`) e expor `GET /uso-ia`. Esse registro não aparece no app; é consultado pela API.
+- Trocar o provedor de IA do Gemini pelo Groq (API no formato da OpenAI), com endereço, chave e lista de modelos configuráveis pelo `.env` (`IA_BASE_URL`, `IA_API_KEY` e `IA_MODELOS`).
+- Registrar os tokens consumidos em cada chamada à IA (entidade `UsoIA`) e expor `GET /uso-ia`. Esse registro não aparece no app; é consultado pela API.
 - Filtro por categoria e busca na listagem de comprovantes.
 - Rota de resumo do mês, com total, quantidade e gastos por categoria.
 - Consulta e edição do nome do usuário (`/usuarios/me`).
@@ -176,8 +176,8 @@ A decisão sobre cada elemento do protótipo está em [PROTOTIPO.md](PROTOTIPO.m
 
 ## 7. Estratégia de testes por sprint
 
-- **Sprint 1:** testes unitários isolados em Jest, com mocks das dependências. Sem banco real, requisições HTTP, chamadas reais ao Gemini ou armazenamento real. O padrão também deve ser aplicado às entregas já iniciadas.
-- **Sprint 2:** integração com banco e armazenamento exclusivos de teste, testes HTTP e fluxos completos, incluindo autenticação e isolamento entre usuários. O Gemini é simulado nos testes automatizados; a validação manual com a API real é complementar.
+- **Sprint 1:** testes unitários isolados em Jest, com mocks das dependências. Sem banco real, requisições HTTP, chamadas reais à IA ou armazenamento real. O padrão também deve ser aplicado às entregas já iniciadas.
+- **Sprint 2:** integração com banco e armazenamento exclusivos de teste, testes HTTP e fluxos completos, incluindo autenticação e isolamento entre usuários. A IA é simulada nos testes automatizados; a validação manual com a API real é complementar.
 - A separação dos testes por sprint não adia as regras de negócio nem a segurança necessárias a cada funcionalidade.
 
 Responsabilidades, exemplos e critérios de aceite estão no [TEST-PLAN.md](TEST-PLAN.md).

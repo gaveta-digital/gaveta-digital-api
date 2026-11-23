@@ -1,7 +1,7 @@
 const ComprovanteRepository = require('../repositories/ComprovanteRepository');
 const CategoriaRepository = require('../repositories/CategoriaRepository');
 const ArmazenamentoService = require('./ArmazenamentoService');
-const geminiService = require('./geminiService');
+const iaService = require('./iaService');
 
 const NOME_CATEGORIA_PADRAO = 'Outros';
 
@@ -67,13 +67,13 @@ const ComprovanteService = {
     return serializarComprovante(comprovante);
   },
 
-  // cria o comprovante a partir da foto: o gemini lê a imagem e devolve os dados
+  // cria o comprovante a partir da foto: a ia lê a imagem e devolve os dados
   async criarComIA(usuarioId, arquivo) {
     // pega as categorias do usuário pra ia escolher uma
     const categorias = await CategoriaRepository.findAllByUsuario(usuarioId);
 
-    // manda a imagem pro gemini (se ilegível ou fora do ar, o erro para aqui)
-    const analise = await geminiService.analisarComprovante(
+    // manda a imagem pra ia (se ilegível ou fora do ar, o erro para aqui)
+    const analise = await iaService.analisarComprovante(
       arquivo.buffer,
       arquivo.mimetype,
       categorias.map((categoria) => ({ id: categoria.id, nome: categoria.nome }))

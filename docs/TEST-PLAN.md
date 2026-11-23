@@ -10,10 +10,10 @@ Os testes devem verificar resultados observáveis, regras de negócio, erros e l
 
 ### Sprint 1 — Testes unitários obrigatórios
 
-Testar cada unidade isoladamente, usando Jest e mocks para suas dependências. Não utilizar banco real, requisições HTTP, chamadas ao Gemini ou armazenamento real de arquivos nesses testes.
+Testar cada unidade isoladamente, usando Jest e mocks para suas dependências. Não utilizar banco real, requisições HTTP, chamadas à IA ou armazenamento real de arquivos nesses testes.
 
 - Controllers: simular models e services; usar `req`, `res` e `next` simulados.
-- Services: simular o cliente do Gemini, os models e o armazenamento de arquivos que utilizarem.
+- Services: simular o `fetch` do provedor de IA, os models e o armazenamento de arquivos que utilizarem.
 - Middlewares: simular suas dependências, a requisição, a resposta e `next`.
 - Models: verificar validações locais sem persistir, por exemplo com `build()` e `validate()`. Simular operações de persistência quando testar métodos próprios, como inicialização de categorias.
 - Funções de validação e normalização: executar a função real com entradas válidas, inválidas e de limite. Não simular a própria regra que se pretende verificar.
@@ -34,7 +34,7 @@ Verificar as camadas funcionando juntas, usando banco e armazenamento exclusivos
 - Falhas e recuperação entre banco e armazenamento.
 - Autenticação, autorização e isolamento entre usuários no fluxo completo.
 
-Os testes automatizados de integração devem usar respostas controladas do Gemini, sem depender da disponibilidade, custo ou variabilidade da API externa. Uma verificação manual com Gemini real é complementar e não substitui os testes automatizados nem deve ser requisito de cada execução da CI.
+Os testes automatizados de integração devem usar respostas controladas da IA, sem depender da disponibilidade, custo ou variabilidade da API externa. Uma verificação manual com a IA real é complementar e não substitui os testes automatizados nem deve ser requisito de cada execução da CI.
 
 Adiar os testes de integração não adia a implementação das regras de negócio ou da segurança pertencentes à entrega. Na Sprint 1, essas decisões também devem ser verificadas isoladamente na unidade responsável.
 
@@ -56,7 +56,7 @@ Este padrão também vale para branches e PRs já iniciados.
 | Cadastro e login                  | Clidenor                      | Fluxo de cadastro/login, tratamento de erros e autenticação na unidade responsável             |
 | CRUD Categoria                    | Radlei                        | Operações, proteção de “Outros”, escopo do usuário e tratamento de erros                       |
 | CRUD Comprovante                  | Maria                         | Upload, edição, listagem, exclusão e decisões de persistência/armazenamento isoladas           |
-| Serviço Gemini                    | Cauan                         | Extração, validação da resposta, classificação, fallback e falhas com cliente externo simulado |
+| Serviço de IA                     | Cauan                         | Extração, validação da resposta, classificação, fallback e falhas com cliente externo simulado |
 | Integração e revisão de qualidade | Cauan, como QA/tech lead      | Planejar a Sprint 2 e revisar critérios e cobertura das entregas                               |
 
 A atribuição atualizada na issue prevalece se houver mudança de responsável. Cada dev testa a camada que implementou; não é necessário duplicar todos os testes do model no controller.
@@ -72,7 +72,7 @@ src/
 ├── models/__tests__/categoria.test.js
 ├── controllers/__tests__/CategoriaController.test.js
 ├── middlewares/__tests__/errorHandler.test.js
-└── services/__tests__/geminiService.test.js
+└── services/__tests__/iaService.test.js
 
 tests/
 └── integration/                 # Suíte da Sprint 2
@@ -151,7 +151,7 @@ Consulta, edição de perfil e exclusão de conta não fazem parte do escopo atu
 
 Usar buffers/fixtures locais controladas para validadores de imagem; simular armazenamento externo. O teste do upload via HTTP fica para a Sprint 2.
 
-### Serviço Gemini
+### Serviço de IA
 
 - Enviar o conteúdo da imagem e somente as categorias do usuário ao cliente simulado.
 - Resposta válida: preservar dados válidos e categoria autorizada.
@@ -250,7 +250,7 @@ Este documento não altera scripts, configuração do Jest ou workflow da CI; a 
 
 - [ ] Implementação atende às regras de negócio aplicáveis à issue.
 - [ ] Unitários isolados cobrem sucesso, erro e limites da unidade entregue.
-- [ ] Não há banco, HTTP, Gemini ou armazenamento real nos unitários.
+- [ ] Não há banco, HTTP, IA ou armazenamento real nos unitários.
 - [ ] Mocks não substituem a lógica que está sendo testada.
 - [ ] Casos negativos verificam o erro correto e a ausência de efeitos indevidos.
 - [ ] Testes passam sozinhos e em conjunto, sem depender da ordem.

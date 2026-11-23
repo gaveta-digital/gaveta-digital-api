@@ -19,7 +19,7 @@ if (-not $ipv4) {
 Set-Location (Split-Path -Parent $PSScriptRoot)
 
 if (-not (Test-Path 'api\.env')) {
-    throw 'Arquivo api\.env não encontrado. Copie api\.env.example para api\.env e preencha GEMINI_API_KEY e JWT_SECRET.'
+    throw 'Arquivo api\.env não encontrado. Copie api\.env.example para api\.env e preencha IA_API_KEY e JWT_SECRET.'
 }
 
 $env:HOST_IP = $ipv4
