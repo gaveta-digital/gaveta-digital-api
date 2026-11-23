@@ -174,7 +174,9 @@ export default function Captura() {
             ref={cameraRef}
             style={StyleSheet.absoluteFill}
             facing="back"
-            flash={flashLigado ? 'on' : 'off'}
+            // Lanterna acesa já no enquadramento (e na foto), e não só um flash no
+            // clique: ajuda a ler o recibo em ambiente escuro.
+            enableTorch={flashLigado}
           />
           <View pointerEvents="none" style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0, 0, 0, 0.45)' }]} />
         </>
@@ -196,7 +198,7 @@ export default function Captura() {
         {cameraLiberada ? (
           <BotaoRedondo
             onPress={() => setFlashLigado((ligado) => !ligado)}
-            rotulo={flashLigado ? 'Desligar o flash' : 'Ligar o flash'}
+            rotulo={flashLigado ? 'Desligar a lanterna' : 'Ligar a lanterna'}
             ativo={flashLigado}
           >
             <Ionicons name="flash" size={20} color={flashLigado ? cores.primaria : '#FFFFFF'} />
