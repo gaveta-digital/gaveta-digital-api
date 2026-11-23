@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 import { router } from 'expo-router';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Carregando } from '../src/components/Carregando';
 import { ErroConexao } from '../src/components/ErroConexao';
 import { EstadoVazio } from '../src/components/EstadoVazio';
@@ -87,8 +88,10 @@ export default function Resumo() {
   const temMes = Boolean(mesExibido);
   const noMesAtual = temMes && mesExibido === mesAtual;
 
+  // O Stack raiz esconde o cabeçalho, então a área segura (relógio, notch e
+  // barra de gestos) é tratada aqui para o "Voltar" e o seletor ficarem tocáveis.
   return (
-    <View style={{ flex: 1, backgroundColor: cores.fundo }}>
+    <SafeAreaView edges={['top', 'bottom']} style={{ flex: 1, backgroundColor: cores.fundo }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', padding: 16 }}>
         <Pressable onPress={() => router.back()} hitSlop={8}>
           <Text style={{ color: cores.primaria, fontWeight: '600' }}>‹ Voltar</Text>
@@ -165,6 +168,6 @@ export default function Resumo() {
           )}
         </ScrollView>
       )}
-    </View>
+    </SafeAreaView>
   );
 }
