@@ -77,6 +77,8 @@ A API responde em `http://localhost:8080`. Rota de saúde: `/api/teste`. Documen
 |---|---|---|
 | POST | `/usuarios` | Cadastra usuário e cria as 6 categorias iniciais |
 | POST | `/login` | Autentica e retorna o token JWT |
+| GET | `/usuarios/me` 🔒 | Consulta o próprio perfil (`id`, `nome` e `email`) |
+| PATCH | `/usuarios/me` 🔒 | Edita só o próprio `nome` |
 | GET | `/categorias` 🔒 | Lista as categorias do usuário |
 | POST | `/categorias` 🔒 | Cria categoria |
 | PUT | `/categorias/:id` 🔒 | Renomeia categoria (exceto "Outros") |
