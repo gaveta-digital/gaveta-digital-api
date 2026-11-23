@@ -16,6 +16,13 @@ describe('Swagger', () => {
     expect(caminhos.filter((caminho) => caminho.startsWith('/api'))).toEqual([]);
   });
 
+  test('documenta a rota GET /uso-ia com autenticação', () => {
+    const operacao = swaggerSpec.paths['/uso-ia'].get;
+
+    expect(operacao.security).toEqual([{ bearerAuth: [] }]);
+    expect(Object.keys(operacao.responses)).toEqual(expect.arrayContaining(['200', '401']));
+  });
+
   test('a página /api-docs entrega a especificação com o servidor /api', async () => {
     const pagina = await request(app).get('/api-docs/');
     const inicializacao = await request(app).get('/api-docs/swagger-ui-init.js');
