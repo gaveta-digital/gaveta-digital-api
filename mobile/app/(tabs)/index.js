@@ -14,6 +14,7 @@ import { CampoTexto } from '../../src/components/CampoTexto';
 import { Carregando } from '../../src/components/Carregando';
 import { ErroConexao } from '../../src/components/ErroConexao';
 import { EstadoVazio } from '../../src/components/EstadoVazio';
+import { IconeCategoria } from '../../src/components/IconeCategoria';
 import { useAuth } from '../../src/context/AuthContext';
 import { categoriaService } from '../../src/services/categoriaService';
 import { comprovanteService } from '../../src/services/comprovanteService';
@@ -278,17 +279,22 @@ export default function Comprovantes() {
           padding: 14,
           borderBottomWidth: 1,
           borderBottomColor: '#EEEEEE',
+          flexDirection: 'row',
+          alignItems: 'center',
         }}
       >
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-          <Text style={{ fontWeight: '700', flex: 1, marginRight: 8 }} numberOfLines={1}>
-            {estabelecimento}
-          </Text>
-          <Text style={{ fontWeight: '700' }}>{valor}</Text>
-        </View>
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 4 }}>
-          <Text style={{ color: '#666666' }}>{data}</Text>
-          <Text style={{ color: '#666666' }}>{nomeCategoria}</Text>
+        <IconeCategoria nome={categoriasPorId[item.categoriaId]} tamanho={52} />
+        <View style={{ flex: 1, marginLeft: 14 }}>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+            <Text style={{ fontWeight: '700', flex: 1, marginRight: 8 }} numberOfLines={1}>
+              {estabelecimento}
+            </Text>
+            <Text style={{ fontWeight: '700' }}>{valor}</Text>
+          </View>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 4 }}>
+            <Text style={{ color: '#666666' }}>{data}</Text>
+            <Text style={{ color: '#666666' }}>{nomeCategoria}</Text>
+          </View>
         </View>
       </Pressable>
     );
