@@ -1,7 +1,9 @@
 import { Stack, router } from 'expo-router';
+import { useFonts } from 'expo-font';
 import { useEffect } from 'react';
 import { AuthProvider, useAuth } from '../src/context/AuthContext';
 import { setLogoutHandler } from '../src/services/api';
+import { FONTES_PARA_CARREGAR } from '../src/theme/fontes';
 
 function Navigation() {
   const { token, carregando, sair } = useAuth();
@@ -24,6 +26,11 @@ function Navigation() {
 }
 
 export default function Layout() {
+  // As fontes do protótipo precisam estar carregadas antes de qualquer tela.
+  // Se o carregamento falhar, o app abre com as fontes do sistema.
+  const [fontesProntas, erroFontes] = useFonts(FONTES_PARA_CARREGAR);
+  if (!fontesProntas && !erroFontes) return null;
+
   return (
     <AuthProvider>
       <Navigation />
