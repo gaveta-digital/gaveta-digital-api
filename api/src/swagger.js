@@ -12,14 +12,13 @@ const options = {
         url: 'https://github.com/gaveta-digital/gaveta-digital-api',
       },
     },
+    // Servidor relativo: o Swagger chama sempre o mesmo endereço em que a
+    // página /api-docs foi aberta (localhost, IP da rede ou outra porta), sem
+    // depender da porta do .env e sem problema de CORS entre origens.
     servers: [
       {
-        url: 'http://localhost:3000/api',
-        description: 'Desenvolvimento',
-      },
-      {
-        url: 'http://localhost:8080/api',
-        description: 'Docker',
+        url: '/api',
+        description: 'Servidor atual (o mesmo endereço desta página)',
       },
     ],
     components: {
