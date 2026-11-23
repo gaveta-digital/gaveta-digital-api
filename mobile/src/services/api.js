@@ -13,7 +13,8 @@ const api = axios.create({
 api.interceptors.request.use((config) => {
   const token = tokenProvider();
   if (token) config.headers.Authorization = `Bearer ${token}`;
-  // A leitura pela IA pode tentar até 4 modelos de 15 s; aumentar junto se a lista crescer.
+  // A leitura pela IA tenta cada modelo de IA_MODELOS por até 15 s (e espera até 5 s num 429).
+  // O padrão é 1 modelo; 70 s cobrem uma lista de até 4. Aumentar junto se a lista crescer.
   if (config.enviarComprovante) config.timeout = 70000;
   return config;
 });
