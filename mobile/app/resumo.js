@@ -1,12 +1,15 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
-import { router } from 'expo-router';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { CabecalhoTela } from '../src/components/CabecalhoTela';
 import { Carregando } from '../src/components/Carregando';
+import { Cartao } from '../src/components/Cartao';
+import { CartaoMetrica } from '../src/components/CartaoMetrica';
 import { ErroConexao } from '../src/components/ErroConexao';
-import { EstadoVazio } from '../src/components/EstadoVazio';
 import { comprovanteService } from '../src/services/comprovanteService';
-import { cores } from '../src/theme';
+import { cores, espacamentos, raios } from '../src/theme';
+import { estiloDaCategoria } from '../src/theme/categorias';
+import { fontes } from '../src/theme/fontes';
 import { mensagemDeErro } from '../src/utils/erros';
 import { formatarMoeda } from '../src/utils/formatacao';
 import { formatarMesAno, mesAnterior, mesPosterior } from '../src/utils/mes';
@@ -17,7 +20,142 @@ import {
   resumoValido,
 } from '../src/utils/resumoApi';
 
+// Seta do seletor desabilitada (frame "Resumo do mês - sem gastos" do Figma).
+const COR_SETA_DESABILITADA = 'rgba(255, 255, 255, 0.25)';
+
+function SetaDoSeletor({ simbolo, rotulo, desabilitada, onPress }) {
+  return (
+    <Pressable
+      onPress={onPress}
+      disabled={desabilitada}
+      accessibilityRole="button"
+      accessibilityLabel={rotulo}
+      hitSlop={8}
+      style={{ paddingHorizontal: 10 }}
+    >
+      <Text
+        style={{
+          fontFamily: fontes.textoForte,
+          fontSize: 24,
+          lineHeight: 36,
+          color: desabilitada ? COR_SETA_DESABILITADA : cores.destaque,
+        }}
+      >
+        {simbolo}
+      </Text>
+    </Pressable>
+  );
+}
+
+// Pílula do cabeçalho: ‹ Novembro 2026 ›
+function SeletorDeMes({ mes, anteriorDesabilitado, posteriorDesabilitado, onAnterior, onPosterior }) {
+  return (
+    <View
+      style={{
+        backgroundColor: cores.superficieSobrePrimaria,
+        borderRadius: raios.pilula,
+        paddingHorizontal: 14,
+        paddingVertical: 10,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+      }}
+    >
+      <SetaDoSeletor
+        simbolo="‹"
+        rotulo="Mês anterior"
+        desabilitada={anteriorDesabilitado}
+        onPress={onAnterior}
+      />
+      <Text
+        accessibilityLiveRegion="polite"
+        style={{ fontFamily: fontes.titulo, fontSize: 16, lineHeight: 24, color: '#FFFFFF' }}
+      >
+        {mes ? formatarMesAno(mes) : ' '}
+      </Text>
+      <SetaDoSeletor
+        simbolo="›"
+        rotulo="Próximo mês"
+        desabilitada={posteriorDesabilitado}
+        onPress={onPosterior}
+      />
+    </View>
+  );
+}
+
+// Uma categoria do cartão "Gastos por categoria": nome, valor com porcentagem e
+// barra na cor da categoria. A última linha tem o mesmo respiro embaixo do Figma.
+function BarraDaCategoria({ categoria, percentual, ultima }) {
+  const { cor } = estiloDaCategoria(categoria.nome);
+
+  return (
+    <View style={{ paddingTop: 18, paddingBottom: ultima ? 18 : 0 }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+        <Text style={{ fontFamily: fontes.subtitulo, fontSize: 14, lineHeight: 21, color: cores.textoPrincipal }}>
+          {categoria.nome}
+        </Text>
+        <Text style={{ fontFamily: fontes.numero, fontSize: 13.5, lineHeight: 20.25, color: cores.primaria }}>
+          {formatarMoeda(categoria.total)} ({percentual}%)
+        </Text>
+      </View>
+      <View
+        style={{
+          marginTop: 6,
+          height: 10,
+          borderRadius: raios.barra,
+          backgroundColor: cores.trilha,
+          overflow: 'hidden',
+        }}
+      >
+        <View
+          style={{
+            height: 10,
+            width: `${percentual}%`,
+            borderRadius: raios.barra,
+            backgroundColor: cor,
+          }}
+        />
+      </View>
+    </View>
+  );
+}
+
+function CartaoSemGastos({ mes }) {
+  return (
+    <Cartao
+      preenchimento={0}
+      estilo={{ marginTop: espacamentos.xl, paddingHorizontal: espacamentos.xxl, paddingVertical: 48, alignItems: 'center' }}
+    >
+      <Text
+        style={{
+          fontFamily: fontes.titulo,
+          fontSize: 17,
+          lineHeight: 25.5,
+          color: cores.textoCorpo,
+          textAlign: 'center',
+        }}
+      >
+        Nenhum gasto neste mês
+      </Text>
+      <Text
+        style={{
+          fontFamily: fontes.texto,
+          fontSize: 14,
+          lineHeight: 21,
+          color: cores.textoSecundario,
+          textAlign: 'center',
+          marginTop: 6,
+        }}
+      >
+        Não há comprovantes registrados em {formatarMesAno(mes)}.
+      </Text>
+    </Cartao>
+  );
+}
+
 export default function Resumo() {
+  const insets = useSafeAreaInsets();
+
   // Mês mostrado no seletor, já atualizado ao navegar (antes da resposta
   // chegar) para o título nunca ficar "atrasado" em relação ao clique.
   const [mesExibido, setMesExibido] = useState(null);
@@ -87,87 +225,65 @@ export default function Resumo() {
 
   const temMes = Boolean(mesExibido);
   const noMesAtual = temMes && mesExibido === mesAtual;
+  const temGastos = Boolean(resumo && resumo.quantidade > 0);
 
-  // O Stack raiz esconde o cabeçalho, então a área segura (relógio, notch e
-  // barra de gestos) é tratada aqui para o "Voltar" e o seletor ficarem tocáveis.
   return (
-    <SafeAreaView edges={['top', 'bottom']} style={{ flex: 1, backgroundColor: cores.fundo }}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', padding: 16 }}>
-        <Pressable onPress={() => router.back()} hitSlop={8}>
-          <Text style={{ color: cores.primaria, fontWeight: '600' }}>‹ Voltar</Text>
-        </Pressable>
-      </View>
+    <View style={{ flex: 1, backgroundColor: cores.fundoTela }}>
+      <CabecalhoTela titulo="Resumo do Mês">
+        <SeletorDeMes
+          mes={mesExibido}
+          anteriorDesabilitado={!temMes || carregando}
+          posteriorDesabilitado={!temMes || carregando || noMesAtual}
+          onAnterior={irParaMesAnterior}
+          onPosterior={irParaMesPosterior}
+        />
+      </CabecalhoTela>
 
-      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginBottom: 16 }}>
-        <Pressable
-          onPress={irParaMesAnterior}
-          disabled={!temMes || carregando}
-          hitSlop={8}
-          style={{ padding: 8 }}
-        >
-          <Text style={{ fontSize: 22, color: !temMes || carregando ? '#CCCCCC' : cores.primaria }}>
-            ‹
-          </Text>
-        </Pressable>
-        <Text style={{ fontSize: 18, fontWeight: '700', marginHorizontal: 12, minWidth: 160, textAlign: 'center' }}>
-          {temMes ? formatarMesAno(mesExibido) : ' '}
-        </Text>
-        <Pressable
-          onPress={irParaMesPosterior}
-          disabled={!temMes || carregando || noMesAtual}
-          hitSlop={8}
-          style={{ padding: 8 }}
-        >
-          <Text style={{ fontSize: 22, color: !temMes || carregando || noMesAtual ? '#CCCCCC' : cores.primaria }}>
-            ›
-          </Text>
-        </Pressable>
-      </View>
+      <ScrollView
+        contentContainerStyle={{ padding: espacamentos.xl, paddingBottom: espacamentos.xl + insets.bottom }}
+      >
+        {erro ? (
+          <ErroConexao tentarNovamente={tentarDeNovo} mensagem={erro} />
+        ) : carregando ? (
+          <Carregando />
+        ) : (
+          <>
+            <View style={{ flexDirection: 'row', gap: espacamentos.md }}>
+              <CartaoMetrica
+                rotulo="Total gasto"
+                valor={formatarMoeda(resumo?.total ?? 0)}
+                estilo={{ flex: 1 }}
+              />
+              <CartaoMetrica
+                rotulo="Comprovantes"
+                valor={String(resumo?.quantidade ?? 0)}
+                estilo={{ flex: 1 }}
+              />
+            </View>
 
-      {erro ? (
-        <ErroConexao tentarNovamente={tentarDeNovo} mensagem={erro} />
-      ) : carregando ? (
-        <Carregando />
-      ) : (
-        <ScrollView contentContainerStyle={{ padding: 16, paddingTop: 0 }}>
-          <View style={{ alignItems: 'center', marginBottom: 24 }}>
-            <Text style={{ fontSize: 32, fontWeight: '700', color: cores.primaria }}>
-              {formatarMoeda(resumo?.total ?? 0)}
-            </Text>
-            <Text style={{ color: '#666666', marginTop: 4 }}>
-              {resumo?.quantidade ?? 0} comprovante(s)
-            </Text>
-          </View>
-
-          {resumo && resumo.quantidade > 0 ? (
-            resumo.porCategoria.map((categoria) => {
-              const percentual = calcularPercentual(categoria.total, resumo.total);
-              return (
-                <View key={categoria.categoriaId} style={{ marginBottom: 16 }}>
-                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 }}>
-                    <Text style={{ fontWeight: '600' }}>{categoria.nome}</Text>
-                    <Text style={{ color: '#666666' }}>
-                      {formatarMoeda(categoria.total)} ({percentual}%)
-                    </Text>
-                  </View>
-                  <View style={{ height: 10, borderRadius: 5, backgroundColor: '#EEEEEE', overflow: 'hidden' }}>
-                    <View
-                      style={{
-                        height: '100%',
-                        borderRadius: 5,
-                        width: `${percentual}%`,
-                        backgroundColor: cores.destaque,
-                      }}
-                    />
-                  </View>
-                </View>
-              );
-            })
-          ) : (
-            <EstadoVazio texto="Nenhum gasto neste mês" />
-          )}
-        </ScrollView>
-      )}
-    </SafeAreaView>
+            {temGastos ? (
+              <Cartao estilo={{ marginTop: espacamentos.xl }}>
+                <Text
+                  accessibilityRole="header"
+                  style={{ fontFamily: fontes.titulo, fontSize: 16, lineHeight: 24, color: cores.primaria }}
+                >
+                  Gastos por categoria
+                </Text>
+                {resumo.porCategoria.map((categoria, indice) => (
+                  <BarraDaCategoria
+                    key={categoria.categoriaId}
+                    categoria={categoria}
+                    percentual={calcularPercentual(categoria.total, resumo.total)}
+                    ultima={indice === resumo.porCategoria.length - 1}
+                  />
+                ))}
+              </Cartao>
+            ) : (
+              <CartaoSemGastos mes={mesExibido} />
+            )}
+          </>
+        )}
+      </ScrollView>
+    </View>
   );
 }
