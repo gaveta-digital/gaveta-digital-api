@@ -10,7 +10,7 @@ function criarErro(statusCode, mensagem) {
 }
 
 const upload = multer({
-  // guarda a imagem na memória pra mandar pro gemini
+  // guarda a imagem na memória pra mandar pra ia
   storage: multer.memoryStorage(),
   limits: { fileSize: TAMANHO_MAXIMO_BYTES },
   // só aceita jpeg, png e webp

@@ -11,11 +11,11 @@ jest.mock('../../models', () => ({
   },
 }));
 
-jest.mock('../geminiService');
+jest.mock('../iaService');
 jest.mock('../ArmazenamentoService');
 
 const { Comprovante, Categoria } = require('../../models');
-const geminiService = require('../geminiService');
+const iaService = require('../iaService');
 const ArmazenamentoService = require('../ArmazenamentoService');
 const ComprovanteService = require('../ComprovanteService');
 
@@ -317,9 +317,9 @@ describe('ComprovanteService', () => {
       mimetype: 'image/jpeg',
     };
 
-    test('busca as categorias do usuário e envia apenas id/nome ao Gemini', async () => {
+    test('busca as categorias do usuário e envia apenas id/nome à IA', async () => {
       Categoria.findAll.mockResolvedValueOnce(categoriasDoUsuario);
-      geminiService.analisarComprovante.mockResolvedValueOnce({
+      iaService.analisarComprovante.mockResolvedValueOnce({
         estabelecimento: 'Mercado',
         data: '2026-09-14',
         valor: 10,
@@ -339,7 +339,7 @@ describe('ComprovanteService', () => {
       await ComprovanteService.criarComIA('usuario-1', arquivo);
 
       expect(Categoria.findAll).toHaveBeenCalledWith({ where: { usuarioId: 'usuario-1' } });
-      expect(geminiService.analisarComprovante).toHaveBeenCalledWith(
+      expect(iaService.analisarComprovante).toHaveBeenCalledWith(
         arquivo.buffer,
         arquivo.mimetype,
         [
@@ -351,7 +351,7 @@ describe('ComprovanteService', () => {
 
     test('salva a imagem e cria o comprovante com os dados extraídos pela IA', async () => {
       Categoria.findAll.mockResolvedValueOnce(categoriasDoUsuario);
-      geminiService.analisarComprovante.mockResolvedValueOnce({
+      iaService.analisarComprovante.mockResolvedValueOnce({
         estabelecimento: 'Mercado Central',
         data: '2026-09-14',
         valor: 42.5,
@@ -387,7 +387,7 @@ describe('ComprovanteService', () => {
 
     test('usa a categoria "Outros" quando a IA retorna categoriaId null', async () => {
       Categoria.findAll.mockResolvedValueOnce(categoriasDoUsuario);
-      geminiService.analisarComprovante.mockResolvedValueOnce({
+      iaService.analisarComprovante.mockResolvedValueOnce({
         estabelecimento: null,
         data: null,
         valor: null,
@@ -405,7 +405,7 @@ describe('ComprovanteService', () => {
 
     test('usa "Outros" quando a IA retorna um categoriaId que não pertence ao usuário', async () => {
       Categoria.findAll.mockResolvedValueOnce(categoriasDoUsuario);
-      geminiService.analisarComprovante.mockResolvedValueOnce({
+      iaService.analisarComprovante.mockResolvedValueOnce({
         estabelecimento: null,
         data: null,
         valor: null,
@@ -423,7 +423,7 @@ describe('ComprovanteService', () => {
 
     test('normaliza data inválida retornada pela IA para null, sem bloquear a criação', async () => {
       Categoria.findAll.mockResolvedValueOnce(categoriasDoUsuario);
-      geminiService.analisarComprovante.mockResolvedValueOnce({
+      iaService.analisarComprovante.mockResolvedValueOnce({
         estabelecimento: 'Mercado',
         data: '2999-01-01',
         valor: 10,
@@ -441,7 +441,7 @@ describe('ComprovanteService', () => {
 
     test('normaliza valor inválido retornado pela IA para null, sem bloquear a criação', async () => {
       Categoria.findAll.mockResolvedValueOnce(categoriasDoUsuario);
-      geminiService.analisarComprovante.mockResolvedValueOnce({
+      iaService.analisarComprovante.mockResolvedValueOnce({
         estabelecimento: null,
         data: null,
         valor: -5,
@@ -462,7 +462,7 @@ describe('ComprovanteService', () => {
       const erroIlegivel = Object.assign(new Error('Não foi possível ler o comprovante.'), {
         statusCode: 422,
       });
-      geminiService.analisarComprovante.mockRejectedValueOnce(erroIlegivel);
+      iaService.analisarComprovante.mockRejectedValueOnce(erroIlegivel);
 
       await expect(
         ComprovanteService.criarComIA('usuario-1', arquivo)
@@ -472,12 +472,12 @@ describe('ComprovanteService', () => {
       expect(Comprovante.create).not.toHaveBeenCalled();
     });
 
-    test('propaga o erro 503 de falha do Gemini sem salvar imagem nem comprovante', async () => {
+    test('propaga o erro 503 de falha da IA sem salvar imagem nem comprovante', async () => {
       Categoria.findAll.mockResolvedValueOnce(categoriasDoUsuario);
       const erroIndisponivel = Object.assign(new Error('Serviço indisponível.'), {
         statusCode: 503,
       });
-      geminiService.analisarComprovante.mockRejectedValueOnce(erroIndisponivel);
+      iaService.analisarComprovante.mockRejectedValueOnce(erroIndisponivel);
 
       await expect(
         ComprovanteService.criarComIA('usuario-1', arquivo)
@@ -489,7 +489,7 @@ describe('ComprovanteService', () => {
 
     test('remove a imagem salva se a criação do comprovante falhar no banco', async () => {
       Categoria.findAll.mockResolvedValueOnce(categoriasDoUsuario);
-      geminiService.analisarComprovante.mockResolvedValueOnce({
+      iaService.analisarComprovante.mockResolvedValueOnce({
         estabelecimento: null,
         data: null,
         valor: null,
