@@ -42,8 +42,13 @@ export default function Processando() {
   const [fase, setFase] = useState('enviando');
   const [mensagem, setMensagem] = useState('');
   const iniciouRef = useRef(false);
+  // Impede dois envios ao mesmo tempo (ex.: toque duplo em "Tentar de novo" antes
+  // de a tela redesenhar), o que criaria dois comprovantes e gastaria duas leituras.
+  const enviandoRef = useRef(false);
 
   const enviar = useCallback(async () => {
+    if (enviandoRef.current) return;
+    enviandoRef.current = true;
     setFase('enviando');
     setMensagem('');
 
@@ -74,6 +79,8 @@ export default function Processando() {
 
       setMensagem(texto);
       setFase('erro');
+    } finally {
+      enviandoRef.current = false;
     }
   }, [uri]);
 
