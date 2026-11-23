@@ -6,16 +6,15 @@ import { ErroConexao } from '../src/components/ErroConexao';
 import { EstadoVazio } from '../src/components/EstadoVazio';
 import { comprovanteService } from '../src/services/comprovanteService';
 import { cores } from '../src/theme';
+import { mensagemDeErro } from '../src/utils/erros';
 import { formatarMoeda } from '../src/utils/formatacao';
 import { formatarMesAno, mesAnterior, mesPosterior } from '../src/utils/mes';
 import { calcularPercentual } from '../src/utils/resumoCalculos';
 import {
-  mensagemErroRequisicao,
+  MENSAGEM_FORMATO_INVALIDO,
   RespostaFormatoInvalidoError,
   resumoValido,
 } from '../src/utils/resumoApi';
-
-const MENSAGEM_FORMATO_INVALIDO = 'Recebemos uma resposta inválida do servidor.';
 
 export default function Resumo() {
   // Mês mostrado no seletor, já atualizado ao navegar (antes da resposta
@@ -64,7 +63,7 @@ export default function Resumo() {
       setErro(
         erroCapturado instanceof RespostaFormatoInvalidoError
           ? MENSAGEM_FORMATO_INVALIDO
-          : mensagemErroRequisicao(erroCapturado)
+          : mensagemDeErro(erroCapturado)
       );
     } finally {
       if (idRequisicao === idRequisicaoRef.current) setCarregando(false);

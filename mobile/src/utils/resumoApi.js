@@ -1,20 +1,11 @@
-// Duplicado de mobile/app/(tabs)/index.js (mensagemErroRequisicao e
-// resumoValido) para a tela de Resumo do mês não depender da tela de lista.
-// Unificar depois num só lugar — ver relatório da issue #68.
-const MENSAGEM_SEM_CONEXAO = 'Sem conexão com o servidor.';
-const STATUS_COM_MENSAGEM_PROPRIA = [400, 409, 413, 415];
+// Validação da resposta do resumo e do formato inesperado, compartilhada pela
+// lista de comprovantes e pela tela Resumo do mês. As mensagens de erro de
+// requisição vêm de mensagemDeErro (src/utils/erros.js), que segue a seção 8.
+export const MENSAGEM_FORMATO_INVALIDO = 'Recebemos uma resposta inválida do servidor.';
 
 // Sinaliza resposta com status OK, mas corpo fora do formato esperado — nunca
-// tratado como mês sem gastos (seção 8 do documento de regras).
+// tratado como lista ou mês sem gastos (seção 8 do documento de regras).
 export class RespostaFormatoInvalidoError extends Error {}
-
-export function mensagemErroRequisicao(erro) {
-  const resposta = erro?.response;
-  if (resposta && STATUS_COM_MENSAGEM_PROPRIA.includes(resposta.status) && resposta.data?.erro) {
-    return resposta.data.erro;
-  }
-  return MENSAGEM_SEM_CONEXAO;
-}
 
 export function resumoValido(dados) {
   return Boolean(

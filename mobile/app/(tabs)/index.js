@@ -21,29 +21,18 @@ import { useDebounce } from '../../src/hooks/useDebounce';
 import { cores } from '../../src/theme';
 import { mensagemDeErro } from '../../src/utils/erros';
 import { formatarData, formatarMoeda, iniciaisNome } from '../../src/utils/formatacao';
+import {
+  MENSAGEM_FORMATO_INVALIDO,
+  RespostaFormatoInvalidoError,
+  resumoValido,
+} from '../../src/utils/resumoApi';
 
 const LIMITE_POR_PAGINA = 20;
 const ESPERA_BUSCA_MS = 400;
 const TAMANHO_MAXIMO_BUSCA = 100;
 
-const MENSAGEM_FORMATO_INVALIDO = 'Recebemos uma resposta inválida do servidor.';
-
-// Sinaliza resposta com status OK, mas corpo fora do formato esperado — nunca
-// tratado como lista/resumo vazio (seção 8 do documento de regras).
-class RespostaFormatoInvalidoError extends Error {}
-
 export function listaDeComprovantesValida(dados) {
   return Array.isArray(dados);
-}
-
-export function resumoValido(dados) {
-  return Boolean(
-    dados
-    && typeof dados.mes === 'string'
-    && typeof dados.total === 'number'
-    && typeof dados.quantidade === 'number'
-    && Array.isArray(dados.porCategoria)
-  );
 }
 
 // Extraído para ficar testável isoladamente: omite categoriaId quando "Todas"
