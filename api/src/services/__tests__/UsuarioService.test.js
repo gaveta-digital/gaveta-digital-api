@@ -120,7 +120,7 @@ describe('Service UsuarioService', () => {
 
             const result = await UsuarioService.loginUsuario('teste@teste.com', 'senha_certa');
 
-            expect(jwt.sign).toHaveBeenCalledWith({ id: 1 }, 'secret_test', { expiresIn: '1d' });
+            expect(jwt.sign).toHaveBeenCalledWith({ id: 1 }, 'secret_test', { expiresIn: '7d' });
             expect(result.token).toBe('mocked_jwt_token');
             expect(result.usuario).not.toHaveProperty('senha');
         });

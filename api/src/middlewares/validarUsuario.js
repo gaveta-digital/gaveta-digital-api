@@ -2,17 +2,18 @@ const { z } = require('zod');
 
 const caracteresPermitidos = /^[\p{L}\p{M} '-]+$/u;
 const contemLetra = /\p{L}/u;
-
-const usuarioSchema = z.object({
-    nome: z.string({ 
-        required_error: "Nome é obrigatório", 
-        invalid_type_error: "Nome deve ser uma string" 
-    })
-    .trim() // Remove os espaços das extremidades antes de validar o tamanho
+const nomeSchema = z.string({
+    required_error: "Nome é obrigatório",
+    invalid_type_error: "Nome deve ser uma string"
+})
+    .trim()
     .min(2, "O nome deve ter no mínimo 2 caracteres")
     .max(100, "O nome deve ter no máximo 100 caracteres")
     .regex(caracteresPermitidos, "O nome contém caracteres inválidos")
-    .regex(contemLetra, "O nome deve conter pelo menos uma letra"),
+    .regex(contemLetra, "O nome deve conter pelo menos uma letra");
+
+const usuarioSchema = z.object({
+    nome: nomeSchema,
 
 
     email: z.string({ 
@@ -54,3 +55,4 @@ const validarUsuario = (req, res, next) => {
 
 
 module.exports = validarUsuario;
+module.exports.nomeSchema = nomeSchema;

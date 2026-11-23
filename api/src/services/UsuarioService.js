@@ -4,6 +4,7 @@ const jwt = require('jsonwebtoken');
 const UsuarioRepository = require('../repositories/UsuarioRepository');
 
 const saltRounds = 10;
+const TOKEN_EXPIRACAO = '7d'; // 7 dias
 
 const UsuarioService ={
 
@@ -56,13 +57,34 @@ const UsuarioService ={
         const token = jwt.sign(
             {id: usuarioExistente.id},
             process.env.JWT_SECRET,
-            {expiresIn: '1d'}
+            {expiresIn: TOKEN_EXPIRACAO}
         );
         
         //4. Retornar o token e os dados do usuário (sem a senha)
         const usuarioSemSenha = usuarioExistente.toJSON();
         delete usuarioSemSenha.senha;
         return { token, usuario: usuarioSemSenha };
+    },
+
+    async obterPerfil(id) {
+        const usuario = await UsuarioRepository.findById(id);
+        if (!usuario) {
+            const erro = new Error('Token inválido ou expirado');
+            erro.statusCode = 401;
+            throw erro;
+        }
+        return { id: usuario.id, nome: usuario.nome, email: usuario.email };
+    },
+
+    async atualizarPerfil(id, nome) {
+        const usuario = await UsuarioRepository.findById(id);
+        if (!usuario) {
+            const erro = new Error('Token inválido ou expirado');
+            erro.statusCode = 401;
+            throw erro;
+        }
+        const atualizado = await UsuarioRepository.atualizarNome(usuario, nome);
+        return { id: atualizado.id, nome: atualizado.nome, email: atualizado.email };
     }
 }
 
