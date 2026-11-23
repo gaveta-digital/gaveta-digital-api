@@ -9,6 +9,22 @@
     "plugins": [
       "expo-router",
       "expo-secure-store",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "O Gaveta Digital usa a câmera para fotografar os seus comprovantes.",
+          "microphonePermission": false,
+          "recordAudioAndroid": false
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "O Gaveta Digital acessa as suas fotos para você escolher um comprovante.",
+          "cameraPermission": false,
+          "microphonePermission": false
+        }
+      ],
       "expo-image",
       "@react-native-community/datetimepicker",
       "expo-status-bar",
