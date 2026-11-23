@@ -52,7 +52,8 @@ const UsuarioController = {
             next(erro);
         }
     },
-        async obterPerfil(req, res, next) {
+
+    async obterPerfil(req, res, next) {
         try {
             const data = await UsuarioService.obterPerfil(req.usuarioId);
             res.status(200).json({ status: 'sucesso', data });

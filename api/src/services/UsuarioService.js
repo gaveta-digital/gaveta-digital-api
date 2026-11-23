@@ -65,7 +65,8 @@ const UsuarioService ={
         delete usuarioSemSenha.senha;
         return { token, usuario: usuarioSemSenha };
     },
-        async obterPerfil(id) {
+
+    async obterPerfil(id) {
         const usuario = await UsuarioRepository.findById(id);
         if (!usuario) {
             const erro = new Error('Token inválido ou expirado');

@@ -12,7 +12,8 @@ const UsuarioRepository = {
   async create(dados, opcoes = {}) {
     return Usuario.create(dados, opcoes);
   },
-    async findById(id) {
+
+  async findById(id) {
     return Usuario.findByPk(id); // defaultScope já exclui a senha
   },
 

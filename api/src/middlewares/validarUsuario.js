@@ -12,7 +12,6 @@ const nomeSchema = z.string({
     .regex(caracteresPermitidos, "O nome contém caracteres inválidos")
     .regex(contemLetra, "O nome deve conter pelo menos uma letra");
 
-
 const usuarioSchema = z.object({
     nome: nomeSchema,
 
