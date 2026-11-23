@@ -497,4 +497,198 @@ describe('iaService', () => {
       expect(global.fetch).toHaveBeenCalledTimes(1);
     });
   });
+
+  describe('registro das tentativas (uso da IA, seção 9)', () => {
+    const dadosOk = { estabelecimento: 'Loja', data: null, valor: null, categoriaId: null };
+    let tentativas;
+    let esperas;
+
+    const analisar = () => iaService.analisarComprovante(imagemBuffer, 'image/jpeg', categorias, { tentativas });
+
+    beforeEach(() => {
+      process.env.IA_MODELOS = 'modelo-a,modelo-b';
+      tentativas = [];
+      esperas = [];
+      // as esperas acontecem na hora; o limite de tempo da tentativa é só registrado
+      jest.spyOn(global, 'setTimeout').mockImplementation((funcao, ms) => {
+        if (ms !== TIMEOUT_TENTATIVA_MS) {
+          esperas.push(ms);
+          funcao();
+        }
+        return 0;
+      });
+    });
+
+    test('leitura com sucesso: uma tentativa com o modelo, os tokens do provedor e a duração', async () => {
+      jest.spyOn(Date, 'now').mockReturnValueOnce(1000).mockReturnValueOnce(1900);
+      global.fetch.mockResolvedValueOnce(
+        respostaIA(dadosOk, { prompt_tokens: 2000, completion_tokens: 65, total_tokens: 2065 })
+      );
+
+      await analisar();
+
+      expect(tentativas).toEqual([
+        {
+          modelo: 'modelo-a',
+          tokensEntrada: 2000,
+          tokensSaida: 65,
+          tokensTotal: 2065,
+          duracaoMs: 900,
+          resultado: 'sucesso',
+        },
+      ]);
+    });
+
+    test('imagem ilegível: o resultado é "ilegivel" e os tokens gastos são registrados', async () => {
+      global.fetch.mockResolvedValueOnce(
+        respostaIA({ erro: 'imagem ilegível' }, { prompt_tokens: 1900, completion_tokens: 12, total_tokens: 1912 })
+      );
+
+      await expect(analisar()).rejects.toMatchObject({ statusCode: 422 });
+
+      expect(tentativas).toHaveLength(1);
+      expect(tentativas[0]).toMatchObject({
+        modelo: 'modelo-a',
+        resultado: 'ilegivel',
+        tokensEntrada: 1900,
+        tokensSaida: 12,
+        tokensTotal: 1912,
+      });
+    });
+
+    test('503 do provedor: a tentativa vira "erro" com tokens 0 e a seguinte registra o sucesso', async () => {
+      global.fetch
+        .mockResolvedValueOnce(respostaErro(503))
+        .mockResolvedValueOnce(respostaIA(dadosOk));
+
+      await analisar();
+
+      expect(tentativas.map((t) => [t.modelo, t.resultado, t.tokensTotal])).toEqual([
+        ['modelo-a', 'erro', 0],
+        ['modelo-b', 'sucesso', 2065],
+      ]);
+    });
+
+    test('todos os modelos fora do ar: uma tentativa de erro por modelo, todas sem tokens', async () => {
+      global.fetch.mockImplementation(async () => respostaErro(503));
+
+      await expect(analisar()).rejects.toMatchObject({ statusCode: 503 });
+
+      expect(tentativas.map((t) => [t.modelo, t.resultado])).toEqual([
+        ['modelo-a', 'erro'],
+        ['modelo-b', 'erro'],
+      ]);
+      expect(tentativas.every((t) => t.tokensEntrada === 0 && t.tokensSaida === 0 && t.tokensTotal === 0)).toBe(true);
+    });
+
+    test('timeout: erro sem tokens e passa ao próximo modelo', async () => {
+      global.fetch
+        .mockRejectedValueOnce(erroTimeout())
+        .mockResolvedValueOnce(respostaIA(dadosOk));
+
+      await analisar();
+
+      expect(tentativas.map((t) => [t.modelo, t.resultado, t.tokensTotal])).toEqual([
+        ['modelo-a', 'erro', 0],
+        ['modelo-b', 'sucesso', 2065],
+      ]);
+    });
+
+    test('falha de rede: erro sem tokens', async () => {
+      global.fetch.mockRejectedValueOnce(new TypeError('fetch failed'));
+
+      await expect(analisar()).rejects.toMatchObject({ statusCode: 503 });
+
+      expect(tentativas).toHaveLength(1);
+      expect(tentativas[0]).toMatchObject({ modelo: 'modelo-a', resultado: 'erro', tokensTotal: 0 });
+    });
+
+    test('429 com espera curta: a tentativa limitada e a repetição são registradas separadas', async () => {
+      global.fetch
+        .mockResolvedValueOnce(respostaErro(429, { headers: { 'retry-after': '2' } }))
+        .mockResolvedValueOnce(respostaIA(dadosOk));
+
+      await analisar();
+
+      expect(esperas).toEqual([2000]);
+      expect(tentativas.map((t) => [t.modelo, t.resultado])).toEqual([
+        ['modelo-a', 'erro'],
+        ['modelo-a', 'sucesso'],
+      ]);
+    });
+
+    test('erro permanente (401): uma tentativa de erro e nenhuma outra', async () => {
+      global.fetch.mockResolvedValueOnce(respostaErro(401));
+
+      await expect(analisar()).rejects.toMatchObject({ statusCode: 503 });
+
+      expect(tentativas).toHaveLength(1);
+      expect(tentativas[0]).toMatchObject({ resultado: 'erro', tokensTotal: 0 });
+    });
+
+    test('resposta 200 cujo conteúdo não é JSON: "erro", mas com os tokens que o provedor cobrou', async () => {
+      global.fetch.mockResolvedValueOnce(
+        respostaIA('isto não é um json', { prompt_tokens: 2000, completion_tokens: 20, total_tokens: 2020 })
+      );
+
+      await expect(analisar()).rejects.toMatchObject({ statusCode: 503 });
+
+      expect(tentativas).toHaveLength(1);
+      expect(tentativas[0]).toMatchObject({ resultado: 'erro', tokensEntrada: 2000, tokensSaida: 20, tokensTotal: 2020 });
+    });
+
+    test('resposta 200 que não é um JSON do provedor: "erro" sem tokens', async () => {
+      global.fetch.mockResolvedValueOnce(new Response('<html>Bad gateway</html>', { status: 200 }));
+
+      await expect(analisar()).rejects.toMatchObject({ statusCode: 503 });
+
+      expect(tentativas[0]).toMatchObject({ resultado: 'erro', tokensEntrada: 0, tokensTotal: 0 });
+    });
+
+    test('sem o campo usage, os tokens valem 0', async () => {
+      global.fetch.mockResolvedValueOnce(
+        new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify(dadosOk) } }] }), { status: 200 })
+      );
+
+      await analisar();
+
+      expect(tentativas[0]).toMatchObject({ resultado: 'sucesso', tokensEntrada: 0, tokensSaida: 0, tokensTotal: 0 });
+    });
+
+    test('sem total_tokens, o total é a soma de entrada e saída', async () => {
+      global.fetch.mockResolvedValueOnce(
+        respostaIA(dadosOk, { prompt_tokens: 100, completion_tokens: 25 })
+      );
+
+      await analisar();
+
+      expect(tentativas[0]).toMatchObject({ tokensEntrada: 100, tokensSaida: 25, tokensTotal: 125 });
+    });
+
+    test('valores de tokens inválidos (negativo, texto) viram 0', async () => {
+      global.fetch.mockResolvedValueOnce(
+        respostaIA(dadosOk, { prompt_tokens: -5, completion_tokens: 'muitos', total_tokens: 'x' })
+      );
+
+      await analisar();
+
+      expect(tentativas[0]).toMatchObject({ tokensEntrada: 0, tokensSaida: 0, tokensTotal: 0 });
+    });
+
+    test('sem chave configurada o provedor não é chamado e nada é registrado', async () => {
+      delete process.env.IA_API_KEY;
+
+      await expect(analisar()).rejects.toMatchObject({ statusCode: 503 });
+
+      expect(tentativas).toEqual([]);
+    });
+
+    test('o coletor é opcional: sem ele a leitura funciona como antes', async () => {
+      global.fetch.mockResolvedValueOnce(respostaIA(dadosOk));
+
+      await expect(
+        iaService.analisarComprovante(imagemBuffer, 'image/jpeg', categorias)
+      ).resolves.toMatchObject({ estabelecimento: 'Loja' });
+    });
+  });
 });
