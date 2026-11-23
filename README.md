@@ -17,7 +17,7 @@ Equipe: [Número da equipe]
 
 MEIs e profissionais autônomos acumulam recibos, notas fiscais e boletos ao longo do mês: papel na gaveta, fotos soltas no celular, notas perdidas no e-mail. Na hora do imposto de renda ou de mandar tudo ao contador, precisam digitar cada gasto numa planilha, e muitas despesas acabam esquecidas ou mal categorizadas.
 
-O **Gaveta Digital** é um aplicativo em que o usuário fotografa o comprovante e uma IA (Google Gemini) preenche estabelecimento, data, valor e categoria. O usuário confere e corrige os dados numa tela de revisão, e tudo fica salvo num histórico organizado, com busca, filtro por categoria e resumo dos gastos do mês.
+O **Gaveta Digital** é um aplicativo em que o usuário fotografa o comprovante e uma IA (Groq) preenche estabelecimento, data, valor e categoria. O usuário confere e corrige os dados numa tela de revisão, e tudo fica salvo num histórico organizado, com busca, filtro por categoria e resumo dos gastos do mês.
 
 **Caso de uso:** João, mecânico autônomo, compra uma câmara de ar e um kit de remendo numa loja de pneus. Ainda no balcão, fotografa o recibo no app. Em poucos segundos aparecem o nome da loja, a data, R$ 150,50 e a categoria "Material". Ele confirma e salva. No fim do mês, abre o resumo e vê quanto gastou com material, sem procurar papel nenhum.
 
@@ -35,7 +35,7 @@ Documentação completa: [`docs/VISAO-GERAL-PROJETO.md`](docs/VISAO-GERAL-PROJET
 
 ### API REST
 
-**Tecnologias:** Node.js 22, Express, Sequelize + SQLite, JWT e bcrypt, Zod (validação), Multer (upload de imagens), Google Gemini API, Swagger, Jest + Supertest, Docker / Docker Compose e GitHub Actions.
+**Tecnologias:** Node.js 22, Express, Sequelize + SQLite, JWT e bcrypt, Zod (validação), Multer (upload de imagens), Groq (IA, API no formato da OpenAI), Swagger, Jest + Supertest, Docker / Docker Compose e GitHub Actions.
 
 **Execução:**
 
@@ -48,7 +48,9 @@ Documentação completa: [`docs/VISAO-GERAL-PROJETO.md`](docs/VISAO-GERAL-PROJET
 | `NODE_ENV` | `development` sincroniza as tabelas do banco ao iniciar |
 | `DB_DIALECT` / `DB_STORAGE` | Banco SQLite e o caminho do arquivo |
 | `JWT_SECRET` | Chave usada para assinar os tokens de login |
-| `GEMINI_API_KEY` | Chave da API do Gemini, gerada em https://aistudio.google.com/apikey |
+| `IA_BASE_URL` | Endereço da API de IA (padrão `https://api.groq.com/openai/v1`) |
+| `IA_API_KEY` | Chave da API do Groq, gerada em https://console.groq.com/keys |
+| `IA_MODELOS` | Modelos separados por vírgula, em ordem de preferência (padrão `qwen/qwen3.8-27b`) |
 
 3. Suba a API, com Docker (recomendado) ou localmente:
 
@@ -61,7 +63,7 @@ npm run dev                    # com recarregamento automático
 
 A API responde em `http://localhost:8080`. Rota de saúde: `/api/teste`. Documentação interativa (Swagger): `/api-docs` — faça login em `POST /login`, copie o `token` e clique em **Authorize**.
 
-4. Testes: `npm test`. Os testes de integração usam banco e uploads temporários, e o Gemini é simulado. Estratégia e cenários em [`docs/TEST-PLAN.md`](docs/TEST-PLAN.md).
+4. Testes: `npm test`. Os testes de integração usam banco e uploads temporários, e a IA é simulada. Estratégia e cenários em [`docs/TEST-PLAN.md`](docs/TEST-PLAN.md).
 
 **Entidades:**
 
@@ -140,7 +142,7 @@ Exemplo — edição parcial (`PATCH /api/comprovantes/:id`):
 | Imagem acima de 10 MiB | `413` |
 | Formato de imagem não suportado (aceita JPEG, PNG e WebP) | `415` |
 | Imagem ilegível pela IA (o comprovante não é criado) | `422` |
-| Gemini indisponível após tentar outros modelos | `503` |
+| IA indisponível após tentar outros modelos | `503` |
 
 Erros seguem o formato `{ "erro": "mensagem para o usuário" }`. Regras completas em [`docs/REGRAS-DE-NEGOCIO.md`](docs/REGRAS-DE-NEGOCIO.md).
 
@@ -169,7 +171,7 @@ npx expo start
 
 3. Escaneie o QR Code com o **Expo Go** (SDK 58) no iPhone ou no Android.
 
-**API e app juntos com Docker:** na raiz do repositório, com `api/.env` preenchido (`GEMINI_API_KEY` e `JWT_SECRET`):
+**API e app juntos com Docker:** na raiz do repositório, com `api/.env` preenchido (`IA_API_KEY` e `JWT_SECRET`):
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\scripts\start-docker.ps1   # Windows: detecta o IPv4 e sobe tudo

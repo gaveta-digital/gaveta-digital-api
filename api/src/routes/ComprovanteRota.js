@@ -11,10 +11,10 @@ router.use('/comprovantes', autenticacao);
  * @swagger
  * /comprovantes:
  *   post:
- *     summary: Cria comprovante a partir de uma imagem (analisada pela IA/Gemini)
+ *     summary: Cria comprovante a partir de uma imagem (analisada pela IA)
  *     description: >
  *       O cliente envia a foto do comprovante. A API busca as categorias do
- *       usuário autenticado, envia a imagem ao Gemini junto com essa lista e
+ *       usuário autenticado, envia a imagem à IA (Groq) junto com essa lista e
  *       extrai estabelecimento, data, valor e categoria automaticamente.
  *       Campos não identificados ficam null; categoria não identificada usa
  *       "Outros" do usuário.
@@ -49,7 +49,7 @@ router.use('/comprovantes', autenticacao);
  *       422:
  *         description: Imagem ilegível — não foi possível interpretar o comprovante
  *       503:
- *         description: Serviço de leitura (Gemini) indisponível no momento
+ *         description: Serviço de leitura (IA) indisponível no momento
  *   get:
  *     summary: Lista comprovantes do usuário (20 por página)
  *     tags:

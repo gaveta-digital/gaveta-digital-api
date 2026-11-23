@@ -58,7 +58,7 @@ Comprovantes → Captura → Processando → Revisão → Comprovantes
 | Escolha de imagem pela galeria | Visão de produto | **Implementada** na tela de Captura, ao lado da câmera. |
 | Foto de perfil | Visão de produto | **Substituída** por um círculo com as iniciais do nome; o model `Usuario` não tem campo de foto. |
 | Etapas de progresso no processamento | Só visual | **Mantidas como animação.** A API responde em uma única chamada síncrona; as etapas apenas comunicam espera. |
-| "% de confiança da IA" | Removido | **Continua removido.** O Gemini não fornece esse número para esta extração. |
+| "% de confiança da IA" | Removido | **Continua removido.** A IA não fornece esse número para esta extração. |
 | Campo "Observações" | Planejado | **Implementado.** O campo `observacoes` existe no comprovante. |
 
 ---
@@ -66,7 +66,7 @@ Comprovantes → Captura → Processando → Revisão → Comprovantes
 ## Fluxo de criação do comprovante
 
 1. **Captura:** o usuário fotografa o comprovante ou escolhe uma imagem da galeria.
-2. **Processando:** o app envia a imagem em `POST /comprovantes`. A API lê a imagem com o Gemini e **já cria** o comprovante, devolvendo `201`.
+2. **Processando:** o app envia a imagem em `POST /comprovantes`. A API lê a imagem com a IA (Groq) e **já cria** o comprovante, devolvendo `201`.
 3. **Revisão:** o app mostra os dados preenchidos pela IA, editáveis.
    - **Salvar no Histórico** → `PATCH /comprovantes/:id` com os dados confirmados ou corrigidos.
    - **Descartar** → `DELETE /comprovantes/:id`, após confirmação.
