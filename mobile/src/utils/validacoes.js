@@ -1,3 +1,20 @@
+// Formato de e-mail idêntico ao `.email()` do Zod 4 que a API usa (validarUsuario e
+// validarLogin). A API aplica trim e toLowerCase antes de validar; o app faz o
+// mesmo, então um e-mail só passa aqui se a API também o aceitar. Se a API trocar
+// a regra, atualize esta expressão e os testes em __tests__/validacoes.test.js.
+const FORMATO_EMAIL = /^(?:[A-Za-z0-9_'+\-]+\.)*[A-Za-z0-9_'+\-]*[A-Za-z0-9_+-]@(?:[A-Za-z0-9][A-Za-z0-9\-]*\.)+[A-Za-z]{2,}$/;
+
+// E-mail sem espaços nas pontas e em minúsculas, como a API o guarda. A senha
+// nunca passa por aqui: ela é enviada exatamente como foi digitada.
+export function normalizarEmail(valor) {
+  return typeof valor === 'string' ? valor.trim().toLowerCase() : valor;
+}
+
+// Nome sem espaços nas pontas; os espaços internos são mantidos.
+export function normalizarNome(valor) {
+  return typeof valor === 'string' ? valor.trim() : valor;
+}
+
 function obrigatorio(valor, campo) {
   if (typeof valor !== 'string' || !valor.trim()) {
     return `${campo} é obrigatório.`;
@@ -21,8 +38,12 @@ export function validarNome(valor) {
     return 'Nome deve ter entre 2 e 100 caracteres.';
   }
 
-  if (!/^\p{L}[\p{L}\s'-]*$/u.test(nome)) {
-    return 'Nome inválido.';
+  if (!/^[\p{L}\p{M} '-]+$/u.test(nome)) {
+    return 'Nome contém caracteres inválidos.';
+  }
+
+  if (!/\p{L}/u.test(nome)) {
+    return 'Nome deve conter pelo menos uma letra.';
   }
 
   return null;
@@ -35,9 +56,7 @@ export function validarEmail(valor) {
     return erroObrigatorio;
   }
 
-  const email = valor.trim();
-
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+  if (!FORMATO_EMAIL.test(normalizarEmail(valor))) {
     return 'E-mail inválido.';
   }
 
@@ -49,16 +68,68 @@ export function validarSenha(valor) {
     return 'Senha inválida.';
   }
 
+  if (valor.length === 0) {
+    return 'Senha é obrigatória.';
+  }
+
   if (
     valor.length < 8
     || !/[a-z]/.test(valor)
     || !/[A-Z]/.test(valor)
     || !/[0-9]/.test(valor)
   ) {
-    return 'Senha deve ter 8 caracteres, maiúscula, minúscula e número.';
+    return 'Senha deve ter no mínimo 8 caracteres, maiúscula, minúscula e número.';
   }
 
   return null;
+}
+
+export function validarSenhaLogin(valor) {
+  if (typeof valor !== 'string' || valor.length === 0) {
+    return 'Senha é obrigatória.';
+  }
+
+  return null;
+}
+
+export function validarConfirmarSenha(senha, confirmarSenha) {
+  if (typeof confirmarSenha !== 'string' || confirmarSenha.length === 0) {
+    return 'Confirme sua senha.';
+  }
+
+  if (confirmarSenha !== senha) {
+    return 'As senhas não conferem.';
+  }
+
+  return null;
+}
+
+function coletarErros(validadores) {
+  const erros = {};
+
+  for (const [campo, mensagem] of Object.entries(validadores)) {
+    if (mensagem) {
+      erros[campo] = mensagem;
+    }
+  }
+
+  return erros;
+}
+
+export function validarCamposLogin(dados) {
+  return coletarErros({
+    email: validarEmail(dados?.email),
+    senha: validarSenhaLogin(dados?.senha),
+  });
+}
+
+export function validarCamposCadastro(dados) {
+  return coletarErros({
+    nome: validarNome(dados?.nome),
+    email: validarEmail(dados?.email),
+    senha: validarSenha(dados?.senha),
+    confirmarSenha: validarConfirmarSenha(dados?.senha, dados?.confirmarSenha),
+  });
 }
 
 export function validarCategoria(valor) {
@@ -119,9 +190,19 @@ export function validarObservacoes(valor) {
 }
 
 export function validarCadastro(dados) {
-  return (
+  const erroBasico = (
     validarNome(dados?.nome)
     || validarEmail(dados?.email)
     || validarSenha(dados?.senha)
   );
+
+  if (erroBasico) {
+    return erroBasico;
+  }
+
+  if (dados && 'confirmarSenha' in dados) {
+    return validarConfirmarSenha(dados.senha, dados.confirmarSenha);
+  }
+
+  return null;
 }

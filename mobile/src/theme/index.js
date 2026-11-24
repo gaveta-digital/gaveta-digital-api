@@ -30,6 +30,9 @@ export const cores = {
   perigo: '#D32F2F',
   perigoFundo: '#FFEBEE',
   perigoBorda: '#FFCDD2',
+  erroTexto: '#C62828',
+  erroBordaCampo: '#E53935',
+  textoPlaceholder: 'rgba(33, 33, 33, 0.5)',
 };
 
 export const tamanhosFonte = {
@@ -50,6 +53,7 @@ export const raios = {
   cartaoItem: 16,
   cartao: 18,
   cartaoGrande: 20,
+  cartaoTopo: 32,
   filtro: 24,
 };
 
@@ -72,4 +76,25 @@ export const sombras = {
   leve: { ...sombraBase, shadowOpacity: 0.05, shadowRadius: 2, elevation: 1 },
   item: { ...sombraBase, shadowOpacity: 0.06, shadowRadius: 2.5, elevation: 2 },
   destaque: { ...sombraBase, shadowOpacity: 0.08, shadowRadius: 5, elevation: 3 },
+  cartaoTopo: {
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.06,
+    shadowRadius: 6,
+    elevation: 4,
+  },
+  botaoPrimario: {
+    shadowColor: '#1A237E',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.32,
+    shadowRadius: 6,
+    elevation: 6,
+  },
+  botaoSucesso: {
+    shadowColor: '#2E7D32',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.32,
+    shadowRadius: 6,
+    elevation: 6,
+  },
 };
