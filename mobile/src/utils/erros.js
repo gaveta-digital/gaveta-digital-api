@@ -16,6 +16,16 @@ export function mensagemDeErroLogin(erro) {
   return mensagemDeErro(erro);
 }
 
+// A API devolve 400 com a mensagem do primeiro campo inválido. As regras do app
+// espelham as da API, então isso não deveria acontecer; se acontecer, a mensagem
+// aparece embaixo do campo certo (seção 8), e não só no banner.
+function campoDaMensagem(mensagem) {
+  if (/e-?mail/i.test(mensagem)) return 'email';
+  if (/\bsenha\b/i.test(mensagem)) return 'senha';
+  if (/\bnome\b/i.test(mensagem)) return 'nome';
+  return null;
+}
+
 export function tratarErroCadastro(erro) {
   if (!erro?.response) {
     return { geral: 'Sem conexão com o servidor.', campos: {} };
@@ -25,5 +35,12 @@ export function tratarErroCadastro(erro) {
     return { geral: null, campos: { email: 'E-mail já cadastrado' } };
   }
 
-  return { geral: mensagemDeErro(erro), campos: {} };
+  const mensagem = mensagemDeErro(erro);
+  const campo = erro.response.status === 400 ? campoDaMensagem(mensagem) : null;
+
+  if (campo) {
+    return { geral: null, campos: { [campo]: mensagem } };
+  }
+
+  return { geral: mensagem, campos: {} };
 }
