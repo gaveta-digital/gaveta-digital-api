@@ -1,25 +1,41 @@
-import { Stack, router } from 'expo-router';
+import { Stack, router, useSegments } from 'expo-router';
 import { useFonts } from 'expo-font';
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { AuthProvider, useAuth } from '../src/context/AuthContext';
 import { setLogoutHandler } from '../src/services/api';
 import { FONTES_PARA_CARREGAR } from '../src/theme/fontes';
 
 function Navigation() {
   const { token, carregando, sair } = useAuth();
+  const segments = useSegments();
+  const expirandoRef = useRef(false);
+  const naAreaAuth = segments[0] === '(auth)';
 
-  // 401 em rota autenticada: encerra a sessão e volta ao login avisando o usuário.
+  // 401 em rota autenticada: encerra a sessão uma única vez e avisa no login.
   useEffect(() => {
     setLogoutHandler(async () => {
+      if (expirandoRef.current) return;
+      expirandoRef.current = true;
       await sair();
-      router.replace({ pathname: '/login', params: { sessaoExpirada: '1' } });
     });
   }, [sair]);
 
-  // Sem token vai para o login; com token vai para as abas.
+  // Sem token vai para o login (fora de (auth)); com token sai de (auth) para as abas.
   useEffect(() => {
-    if (!carregando) router.replace(token ? '/' : '/login');
-  }, [carregando, token]);
+    if (carregando) return;
+
+    if (token && naAreaAuth) {
+      expirandoRef.current = false;
+      router.replace('/');
+    } else if (!token && !naAreaAuth) {
+      if (expirandoRef.current) {
+        expirandoRef.current = false;
+        router.replace({ pathname: '/login', params: { sessaoExpirada: '1' } });
+      } else {
+        router.replace('/login');
+      }
+    }
+  }, [carregando, token, naAreaAuth]);
 
   if (carregando) return null;
   return <Stack screenOptions={{ headerShown: false }} />;
