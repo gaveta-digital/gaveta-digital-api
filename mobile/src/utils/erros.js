@@ -9,3 +9,21 @@ export function mensagemDeErro(erro) {
   if (status >= 500) return 'Serviço indisponível no momento. Tente novamente em instantes.';
   return 'Recebemos uma resposta inválida do servidor.';
 }
+
+export function mensagemDeErroLogin(erro) {
+  if (!erro?.response) return 'Sem conexão com o servidor.';
+  if (erro.response.status === 401) return 'E-mail ou senha incorretos';
+  return mensagemDeErro(erro);
+}
+
+export function tratarErroCadastro(erro) {
+  if (!erro?.response) {
+    return { geral: 'Sem conexão com o servidor.', campos: {} };
+  }
+
+  if (erro.response.status === 409) {
+    return { geral: null, campos: { email: 'E-mail já cadastrado' } };
+  }
+
+  return { geral: mensagemDeErro(erro), campos: {} };
+}

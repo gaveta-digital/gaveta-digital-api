@@ -21,8 +21,12 @@ export function validarNome(valor) {
     return 'Nome deve ter entre 2 e 100 caracteres.';
   }
 
-  if (!/^\p{L}[\p{L}\s'-]*$/u.test(nome)) {
-    return 'Nome inválido.';
+  if (!/^[\p{L}\p{M} '-]+$/u.test(nome)) {
+    return 'Nome contém caracteres inválidos.';
+  }
+
+  if (!/\p{L}/u.test(nome)) {
+    return 'Nome deve conter pelo menos uma letra.';
   }
 
   return null;
@@ -37,7 +41,7 @@ export function validarEmail(valor) {
 
   const email = valor.trim();
 
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+  if (!/^[^\s@]+@[^\s@.]+(\.[^\s@.]+)+$/.test(email)) {
     return 'E-mail inválido.';
   }
 
@@ -49,16 +53,68 @@ export function validarSenha(valor) {
     return 'Senha inválida.';
   }
 
+  if (valor.length === 0) {
+    return 'Senha é obrigatória.';
+  }
+
   if (
     valor.length < 8
     || !/[a-z]/.test(valor)
     || !/[A-Z]/.test(valor)
     || !/[0-9]/.test(valor)
   ) {
-    return 'Senha deve ter 8 caracteres, maiúscula, minúscula e número.';
+    return 'Senha deve ter no mínimo 8 caracteres, maiúscula, minúscula e número.';
   }
 
   return null;
+}
+
+export function validarSenhaLogin(valor) {
+  if (typeof valor !== 'string' || valor.length === 0) {
+    return 'Senha é obrigatória.';
+  }
+
+  return null;
+}
+
+export function validarConfirmarSenha(senha, confirmarSenha) {
+  if (typeof confirmarSenha !== 'string' || confirmarSenha.length === 0) {
+    return 'Confirme sua senha.';
+  }
+
+  if (confirmarSenha !== senha) {
+    return 'As senhas não conferem.';
+  }
+
+  return null;
+}
+
+function coletarErros(validadores) {
+  const erros = {};
+
+  for (const [campo, mensagem] of Object.entries(validadores)) {
+    if (mensagem) {
+      erros[campo] = mensagem;
+    }
+  }
+
+  return erros;
+}
+
+export function validarCamposLogin(dados) {
+  return coletarErros({
+    email: validarEmail(dados?.email),
+    senha: validarSenhaLogin(dados?.senha),
+  });
+}
+
+export function validarCamposCadastro(dados) {
+  return coletarErros({
+    nome: validarNome(dados?.nome),
+    email: validarEmail(dados?.email),
+    senha: validarSenha(dados?.senha),
+    confirmarSenha: validarConfirmarSenha(dados?.senha, dados?.confirmarSenha),
+  });
 }
 
 export function validarCategoria(valor) {
@@ -119,9 +175,19 @@ export function validarObservacoes(valor) {
 }
 
 export function validarCadastro(dados) {
-  return (
+  const erroBasico = (
     validarNome(dados?.nome)
     || validarEmail(dados?.email)
     || validarSenha(dados?.senha)
   );
+
+  if (erroBasico) {
+    return erroBasico;
+  }
+
+  if (dados && 'confirmarSenha' in dados) {
+    return validarConfirmarSenha(dados.senha, dados.confirmarSenha);
+  }
+
+  return null;
 }
