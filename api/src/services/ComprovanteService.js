@@ -2,6 +2,7 @@ const ComprovanteRepository = require('../repositories/ComprovanteRepository');
 const CategoriaRepository = require('../repositories/CategoriaRepository');
 const ArmazenamentoService = require('./ArmazenamentoService');
 const iaService = require('./iaService');
+const UsoIAService = require('./UsoIAService');
 
 const NOME_CATEGORIA_PADRAO = 'Outros';
 
@@ -72,37 +73,55 @@ const ComprovanteService = {
     // pega as categorias do usuário pra ia escolher uma
     const categorias = await CategoriaRepository.findAllByUsuario(usuarioId);
 
+    // o iaService preenche uma entrada por chamada ao provedor, inclusive as que
+    // falham, para gravar o uso de tokens (seção 9 das regras)
+    const tentativas = [];
+
     // manda a imagem pra ia (se ilegível ou fora do ar, o erro para aqui)
-    const analise = await iaService.analisarComprovante(
-      arquivo.buffer,
-      arquivo.mimetype,
-      categorias.map((categoria) => ({ id: categoria.id, nome: categoria.nome }))
-    );
-
-    // confere a categoria da ia, se inválida usa "Outros"
-    const categoriaId = resolverCategoria(categorias, analise.categoriaId);
-    const camposNormalizados = normalizarCamposDaIA(analise);
-
-    // salva a imagem no disco e depois o comprovante no banco
-    const imagemUrl = await ArmazenamentoService.salvar(
-      arquivo.buffer,
-      arquivo.mimetype
-    );
-
+    let analise;
     try {
-      const comprovante = await ComprovanteRepository.create({
+      analise = await iaService.analisarComprovante(
+        arquivo.buffer,
+        arquivo.mimetype,
+        categorias.map((categoria) => ({ id: categoria.id, nome: categoria.nome })),
+        { tentativas }
+      );
+    } catch (erro) {
+      // 422 ou 503: nenhum comprovante foi criado, mas as tentativas gastaram tokens
+      await UsoIAService.registrarTentativas(usuarioId, tentativas);
+      throw erro;
+    }
+
+    let imagemUrl;
+    let comprovante;
+    try {
+      // confere a categoria da ia, se inválida usa "Outros"
+      const categoriaId = resolverCategoria(categorias, analise.categoriaId);
+      const camposNormalizados = normalizarCamposDaIA(analise);
+
+      // salva a imagem no disco e depois o comprovante no banco
+      imagemUrl = await ArmazenamentoService.salvar(arquivo.buffer, arquivo.mimetype);
+
+      comprovante = await ComprovanteRepository.create({
         ...camposNormalizados,
         categoriaId,
         imagemUrl,
         usuarioId,
       });
-
-      return serializarComprovante(comprovante);
     } catch (erro) {
       // se falhar ao salvar no banco, apaga a imagem pra não ficar solta
-      await ArmazenamentoService.remover(imagemUrl);
+      if (imagemUrl) {
+        await ArmazenamentoService.remover(imagemUrl);
+      }
+      await UsoIAService.registrarTentativas(usuarioId, tentativas);
       throw erro;
     }
+
+    // liga o comprovante criado à tentativa que o gerou; falha ao gravar o uso
+    // só vai para o log e não desfaz o comprovante
+    await UsoIAService.registrarTentativas(usuarioId, tentativas, comprovante.id);
+
+    return serializarComprovante(comprovante);
   },
 
   async listar(usuarioId, query = {}) {

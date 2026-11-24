@@ -72,6 +72,7 @@ A API responde em `http://localhost:8080`. Rota de saúde: `/api/teste`. Documen
 | Usuario | id, nome, email, senha (somente hash) |
 | Categoria | id, nome, usuarioId |
 | Comprovante | id, estabelecimento, data, valor, observacoes, imagemUrl (referência interna), usuarioId, categoriaId |
+| UsoIA | id, usuarioId, comprovanteId (opcional), modelo, tokensEntrada, tokensSaida, tokensTotal, duracaoMs, resultado (`sucesso`, `ilegivel` ou `erro`) |
 
 **Endpoints:** todas as rotas usam o prefixo `/api`. As marcadas com 🔒 exigem `Authorization: Bearer <token>`.
 
@@ -91,6 +92,7 @@ A API responde em `http://localhost:8080`. Rota de saúde: `/api/teste`. Documen
 | PATCH | `/comprovantes/:id` 🔒 | Edita só os campos enviados |
 | DELETE | `/comprovantes/:id` 🔒 | Exclui o comprovante e sua imagem |
 | GET | `/comprovantes/:id/imagem` 🔒 | Retorna a imagem, só para o dono |
+| GET | `/uso-ia` 🔒 | Consumo de tokens da IA do próprio usuário: totais, soma por modelo e as 10 últimas tentativas |
 
 Exemplo — login:
 

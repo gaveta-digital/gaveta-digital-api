@@ -151,20 +151,57 @@ async function chamarModelo(configuracao, modelo, prompt, imagemUrl) {
   }
 }
 
+// Tokens consumidos, como o provedor informa em `usage` (seção 9 das regras).
+// Valor ausente ou inválido vale 0.
+function lerUso(corpo) {
+  const numero = (valor) => (Number.isFinite(valor) && valor >= 0 ? Math.round(valor) : 0);
+  const entrada = numero(corpo?.usage?.prompt_tokens);
+  const saida = numero(corpo?.usage?.completion_tokens);
+
+  return {
+    tokensEntrada: entrada,
+    tokensSaida: saida,
+    tokensTotal: Number.isFinite(corpo?.usage?.total_tokens)
+      ? numero(corpo.usage.total_tokens)
+      : entrada + saida,
+  };
+}
+
+const SEM_TOKENS = { tokensEntrada: 0, tokensSaida: 0, tokensTotal: 0 };
+
+// Registra uma tentativa de leitura no coletor de quem chamou (se houver), para
+// o ComprovanteService gravar o UsoIA. Devolve o objeto, que pode ser ajustado
+// depois (ex.: de "sucesso" para "ilegivel" quando a IA recusa a imagem).
+function registrarTentativa(coletor, modelo, inicio, resultado, uso = SEM_TOKENS) {
+  const tentativa = { modelo, ...uso, duracaoMs: Date.now() - inicio, resultado };
+  if (Array.isArray(coletor)) {
+    coletor.push(tentativa);
+  }
+  return tentativa;
+}
+
 // percorre a lista de modelos e devolve o texto da resposta da IA:
 // - timeout ou 503: passa para o próximo modelo
 // - 429 com retry-after de até 5 s: espera e tenta de novo (uma vez só)
 // - qualquer outro erro, ou lista esgotada: lança, e quem chamou responde 503
-async function consultarProvedor(configuracao, prompt, imagemUrl) {
+// Cada chamada ao provedor, inclusive as que falham, vira uma tentativa no coletor.
+// Devolve o conteúdo e a tentativa que o gerou.
+async function consultarProvedor(configuracao, prompt, imagemUrl, coletor) {
   let esperouRateLimit = false;
 
   for (const modelo of configuracao.modelos) {
     let resposta;
 
+    let tentativa;
+
     for (;;) {
+      const inicio = Date.now();
+
       try {
         resposta = await chamarModelo(configuracao, modelo, prompt, imagemUrl);
       } catch (erro) {
+        // sem resposta do provedor (timeout ou falha de rede): tokens 0 e erro
+        registrarTentativa(coletor, modelo, inicio, 'erro');
         if (!ehTimeout(erro)) {
           throw erro;
         }
@@ -174,6 +211,20 @@ async function consultarProvedor(configuracao, prompt, imagemUrl) {
         resposta = null;
         break;
       }
+
+      // o provedor respondeu: com erro (429, 503...) não há uso; com 200 o uso vem
+      // no corpo e o resultado é provisório até a resposta da IA ser interpretada
+      let corpoRecebido = null;
+      if (resposta.ok) {
+        try {
+          corpoRecebido = JSON.parse(resposta.texto);
+        } catch (erroParse) {
+          corpoRecebido = null;
+        }
+      }
+      tentativa = corpoRecebido
+        ? registrarTentativa(coletor, modelo, inicio, 'sucesso', lerUso(corpoRecebido))
+        : registrarTentativa(coletor, modelo, inicio, 'erro');
 
       const espera = resposta.status === 429 && !esperouRateLimit
         ? esperaDoRetryAfter(resposta.retryAfter)
@@ -208,15 +259,18 @@ async function consultarProvedor(configuracao, prompt, imagemUrl) {
       throw new Error('Resposta do provedor não é um JSON válido.');
     }
 
-    return corpo?.choices?.[0]?.message?.content;
+    return { conteudo: corpo?.choices?.[0]?.message?.content, tentativa };
   }
 
   throw new Error('Nenhum modelo da lista respondeu.');
 }
 
 const iaService = {
-  // manda a imagem + categorias para a IA e recebe os dados do comprovante
-  async analisarComprovante(imagemBuffer, mimeType, categorias) {
+  // manda a imagem + categorias para a IA e recebe os dados do comprovante.
+  // opcoes.tentativas: array que recebe uma entrada por chamada ao provedor, com
+  // modelo, tokens, duração e resultado (sucesso, ilegivel ou erro). Fica
+  // preenchido mesmo quando a leitura falha, para o chamador gravar o uso.
+  async analisarComprovante(imagemBuffer, mimeType, categorias, opcoes = {}) {
     const configuracao = lerConfiguracao();
 
     // sem a chave não dá pra chamar o provedor
@@ -226,12 +280,14 @@ const iaService = {
     }
 
     let respostaTexto;
+    let tentativa;
     try {
-      respostaTexto = await consultarProvedor(
+      ({ conteudo: respostaTexto, tentativa } = await consultarProvedor(
         configuracao,
         montarPrompt(categorias),
-        `data:${mimeType};base64,${imagemBuffer.toString('base64')}`
-      );
+        `data:${mimeType};base64,${imagemBuffer.toString('base64')}`,
+        opcoes.tentativas
+      ));
     } catch (erroOriginal) {
       // o erro real só vai pro log, o cliente recebe uma mensagem genérica
       console.error('[iaService] Falha ao chamar a IA:', sanitizarParaLog(erroOriginal.message));
@@ -248,12 +304,15 @@ const iaService = {
 
     // resposta que não é json conta como falha do provedor
     if (!dados || typeof dados !== 'object' || Array.isArray(dados)) {
+      // o provedor respondeu (e cobrou tokens), mas a resposta não serve
+      tentativa.resultado = 'erro';
       console.error('[iaService] Resposta da IA não é um JSON válido:', sanitizarParaLog(respostaTexto));
       throw criarErro(503, MENSAGEM_INDISPONIVEL);
     }
 
     // a ia avisou que não conseguiu ler a imagem
     if (dados.erro) {
+      tentativa.resultado = 'ilegivel';
       throw criarErro(422, MENSAGEM_IMAGEM_ILEGIVEL);
     }
 

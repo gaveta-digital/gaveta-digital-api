@@ -13,10 +13,12 @@ jest.mock('../../models', () => ({
 
 jest.mock('../iaService');
 jest.mock('../ArmazenamentoService');
+jest.mock('../UsoIAService');
 
 const { Comprovante, Categoria } = require('../../models');
 const iaService = require('../iaService');
 const ArmazenamentoService = require('../ArmazenamentoService');
+const UsoIAService = require('../UsoIAService');
 const ComprovanteService = require('../ComprovanteService');
 
 function dataDeHoje() {
@@ -345,8 +347,92 @@ describe('ComprovanteService', () => {
         [
           { id: 'cat-material', nome: 'Material' },
           { id: 'cat-outros', nome: 'Outros' },
-        ]
+        ],
+        { tentativas: expect.any(Array) }
       );
+    });
+
+    describe('registro do uso da IA (seção 9)', () => {
+      const tentativaDeSucesso = {
+        modelo: 'modelo-a',
+        tokensEntrada: 2000,
+        tokensSaida: 65,
+        tokensTotal: 2065,
+        duracaoMs: 900,
+        resultado: 'sucesso',
+      };
+
+      const analiseValida = {
+        estabelecimento: 'Mercado',
+        data: '2026-09-14',
+        valor: 10,
+        categoriaId: 'cat-material',
+      };
+
+      // simula o iaService: preenche o coletor que recebeu em opcoes.tentativas
+      const iaQueRegistra = (tentativas, resultado) => async (...argumentos) => {
+        argumentos[3].tentativas.push(...tentativas);
+        if (resultado instanceof Error) throw resultado;
+        return resultado;
+      };
+
+      test('grava as tentativas ligando o comprovante criado depois de salvá-lo', async () => {
+        Categoria.findAll.mockResolvedValueOnce(categoriasDoUsuario);
+        iaService.analisarComprovante.mockImplementationOnce(
+          iaQueRegistra([tentativaDeSucesso], analiseValida)
+        );
+        ArmazenamentoService.salvar.mockResolvedValueOnce('uploads/arquivo.jpg');
+        Comprovante.create.mockResolvedValueOnce({ id: 'comprovante-9', usuarioId: 'usuario-1' });
+
+        await ComprovanteService.criarComIA('usuario-1', arquivo);
+
+        expect(UsoIAService.registrarTentativas).toHaveBeenCalledTimes(1);
+        expect(UsoIAService.registrarTentativas).toHaveBeenCalledWith(
+          'usuario-1',
+          [tentativaDeSucesso],
+          'comprovante-9'
+        );
+      });
+
+      test('grava o uso mesmo quando a IA recusa a imagem (422), sem comprovante', async () => {
+        const ilegivel = { ...tentativaDeSucesso, resultado: 'ilegivel' };
+        const erro = Object.assign(new Error('ilegível'), { statusCode: 422 });
+        Categoria.findAll.mockResolvedValueOnce(categoriasDoUsuario);
+        iaService.analisarComprovante.mockImplementationOnce(iaQueRegistra([ilegivel], erro));
+
+        await expect(ComprovanteService.criarComIA('usuario-1', arquivo)).rejects.toBe(erro);
+
+        expect(UsoIAService.registrarTentativas).toHaveBeenCalledTimes(1);
+        expect(UsoIAService.registrarTentativas).toHaveBeenCalledWith('usuario-1', [ilegivel]);
+        expect(Comprovante.create).not.toHaveBeenCalled();
+      });
+
+      test('grava as tentativas que falharam antes do erro 503', async () => {
+        const falha = { ...tentativaDeSucesso, tokensEntrada: 0, tokensSaida: 0, tokensTotal: 0, resultado: 'erro' };
+        const erro = Object.assign(new Error('indisponível'), { statusCode: 503 });
+        Categoria.findAll.mockResolvedValueOnce(categoriasDoUsuario);
+        iaService.analisarComprovante.mockImplementationOnce(iaQueRegistra([falha, falha], erro));
+
+        await expect(ComprovanteService.criarComIA('usuario-1', arquivo)).rejects.toBe(erro);
+
+        expect(UsoIAService.registrarTentativas).toHaveBeenCalledWith('usuario-1', [falha, falha]);
+      });
+
+      test('grava o uso e apaga a imagem quando o banco falha ao salvar o comprovante', async () => {
+        const erroDeBanco = new Error('falha no banco');
+        Categoria.findAll.mockResolvedValueOnce(categoriasDoUsuario);
+        iaService.analisarComprovante.mockImplementationOnce(
+          iaQueRegistra([tentativaDeSucesso], analiseValida)
+        );
+        ArmazenamentoService.salvar.mockResolvedValueOnce('uploads/orfa.jpg');
+        Comprovante.create.mockRejectedValueOnce(erroDeBanco);
+
+        await expect(ComprovanteService.criarComIA('usuario-1', arquivo)).rejects.toBe(erroDeBanco);
+
+        expect(ArmazenamentoService.remover).toHaveBeenCalledWith('uploads/orfa.jpg');
+        // o comprovante não existe: a tentativa fica sem vínculo
+        expect(UsoIAService.registrarTentativas).toHaveBeenCalledWith('usuario-1', [tentativaDeSucesso]);
+      });
     });
 
     test('salva a imagem e cria o comprovante com os dados extraídos pela IA', async () => {
