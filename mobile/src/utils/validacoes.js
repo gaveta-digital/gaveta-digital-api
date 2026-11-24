@@ -1,3 +1,20 @@
+// Formato de e-mail idêntico ao `.email()` do Zod 4 que a API usa (validarUsuario e
+// validarLogin). A API aplica trim e toLowerCase antes de validar; o app faz o
+// mesmo, então um e-mail só passa aqui se a API também o aceitar. Se a API trocar
+// a regra, atualize esta expressão e os testes em __tests__/validacoes.test.js.
+const FORMATO_EMAIL = /^(?:[A-Za-z0-9_'+\-]+\.)*[A-Za-z0-9_'+\-]*[A-Za-z0-9_+-]@(?:[A-Za-z0-9][A-Za-z0-9\-]*\.)+[A-Za-z]{2,}$/;
+
+// E-mail sem espaços nas pontas e em minúsculas, como a API o guarda. A senha
+// nunca passa por aqui: ela é enviada exatamente como foi digitada.
+export function normalizarEmail(valor) {
+  return typeof valor === 'string' ? valor.trim().toLowerCase() : valor;
+}
+
+// Nome sem espaços nas pontas; os espaços internos são mantidos.
+export function normalizarNome(valor) {
+  return typeof valor === 'string' ? valor.trim() : valor;
+}
+
 function obrigatorio(valor, campo) {
   if (typeof valor !== 'string' || !valor.trim()) {
     return `${campo} é obrigatório.`;
@@ -39,9 +56,7 @@ export function validarEmail(valor) {
     return erroObrigatorio;
   }
 
-  const email = valor.trim();
-
-  if (!/^[^\s@]+@[^\s@.]+(\.[^\s@.]+)+$/.test(email)) {
+  if (!FORMATO_EMAIL.test(normalizarEmail(valor))) {
     return 'E-mail inválido.';
   }
 

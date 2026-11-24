@@ -2,6 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState } 
 import * as SecureStore from 'expo-secure-store';
 import { authService } from '../services/authService';
 import { setTokenProvider } from '../services/api';
+import { normalizarEmail, normalizarNome } from '../utils/validacoes';
 
 const AuthContext = createContext(null);
 const TOKEN_KEY = 'gaveta_token';
@@ -41,7 +42,7 @@ export function AuthProvider({ children }) {
   }, []);
 
   const entrar = useCallback(async (email, senha) => {
-    const emailNormalizado = typeof email === 'string' ? email.trim().toLowerCase() : email;
+    const emailNormalizado = normalizarEmail(email);
     const resposta = await authService.login({ email: emailNormalizado, senha });
     const dados = resposta.data?.data || resposta.data;
     if (!dados?.token || !dados?.usuario) {
@@ -57,8 +58,8 @@ export function AuthProvider({ children }) {
   }, []);
 
   const cadastrarEEntrar = useCallback(async ({ nome, email, senha }) => {
-    const nomeNormalizado = typeof nome === 'string' ? nome.trim() : nome;
-    const emailNormalizado = typeof email === 'string' ? email.trim().toLowerCase() : email;
+    const nomeNormalizado = normalizarNome(nome);
+    const emailNormalizado = normalizarEmail(email);
 
     await authService.cadastrar({
       nome: nomeNormalizado,
