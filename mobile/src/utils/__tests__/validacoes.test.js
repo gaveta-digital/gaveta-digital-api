@@ -3,6 +3,7 @@ import {
   normalizarNome,
   validarCamposCadastro,
   validarCamposLogin,
+  validarCategoria,
   validarConfirmarSenha,
   validarEmail,
   validarNome,
@@ -283,5 +284,29 @@ describe('validarCamposCadastro', () => {
     expect(validarCamposCadastro({ ...valido, confirmarSenha: 'Senha12345' })).toEqual({
       confirmarSenha: 'As senhas não conferem.',
     });
+  });
+});
+
+describe('validarCategoria', () => {
+  test.each([
+    ['Alimentação'],
+    ['Transporte'],
+    ['Saúde & Lazer'],
+    [' A '],
+    ['50 caracteres', 'a'.repeat(50)],
+  ])('aceita nome de categoria válido: %j', (categoria) => {
+    expect(validarCategoria(categoria)).toBeNull();
+  });
+
+  test.each([
+    ['', 'Categoria é obrigatório.'],
+    ['   ', 'Categoria é obrigatório.'],
+    [null, 'Categoria é obrigatório.'],
+    [undefined, 'Categoria é obrigatório.'],
+    ['123', 'Categoria deve conter pelo menos uma letra.'],
+    ['---', 'Categoria deve conter pelo menos uma letra.'],
+    ['a'.repeat(51), 'Categoria deve ter no máximo 50 caracteres.'],
+  ])('recusa nome de categoria inválido: %j', (categoria, erroEsperado) => {
+    expect(validarCategoria(categoria)).toBe(erroEsperado);
   });
 });

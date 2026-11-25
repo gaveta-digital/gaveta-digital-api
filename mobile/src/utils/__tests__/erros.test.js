@@ -90,6 +90,7 @@ describe('tratarErroCadastro', () => {
 
 describe('mensagemDeErro', () => {
   test.each([
+    [409, 'Você já tem uma categoria com esse nome'],
     [422, 'Não conseguimos ler o comprovante. Tente uma foto mais nítida.'],
     [503, 'Leitura indisponível no momento. Tente novamente em instantes.'],
   ])('%i segue a tabela da seção 8', (status, mensagem) => {
